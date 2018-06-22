@@ -1,7 +1,8 @@
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 Trap calibration (Jongmin Sung)
 
-Bead displacement
+Bead displacement (nm) in response to Trap PM (volt). 
+Spatial correlation (between 0th and ith frame) was used to find the displacement in X and Y.
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -116,8 +117,8 @@ class Data(object):
                     self.corr[i, cx-size+j, cy-size+k] = corr
             self.corr[i] = self.corr[i]/self.corr[i].max()
             self.params += [self.fitgaussian(self.corr[i])]
-            self.fit_x += [self.params[-1][1]]
-            self.fit_y += [self.params[-1][2]]
+            self.fit_x += [self.params[-1][2]]
+            self.fit_y += [self.params[-1][1]]
 
     def conversion(self):
         x = np.array(self.fit_x)
@@ -207,14 +208,14 @@ class Data(object):
         fig2.clf()
 
         sp1 = fig2.add_subplot(211)  
-        sp1.plot(self.y, 'ko', self.y_fit, 'b')
-        sp1.set_title('X (%.1f nm = %.1f mV)' % (self.dy, PM_mV)) 
+        sp1.plot(self.x, 'ko', self.x_fit, 'b')
+        sp1.set_title('X (%.1f nm = %.1f mV)' % (self.dx, PM_mV)) 
 
         sp1.set_ylabel('X (nm)') 
 
         sp2 = fig2.add_subplot(212)  
-        sp2.plot(self.x, 'ko', self.x_fit, 'r')
-        sp2.set_title('Y (%.1f nm = %.1f mV)' % (self.dx, PM_mV)) 
+        sp2.plot(self.y, 'ko', self.y_fit, 'r')
+        sp2.set_title('Y (%.1f nm = %.1f mV)' % (self.dy, PM_mV)) 
         sp2.set_xlabel('Frame')
         sp2.set_ylabel('Y (nm)')  
            
