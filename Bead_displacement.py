@@ -227,7 +227,6 @@ class Data(object):
         self.plot_fig1()
         self.plot_fig2()
 
-
 def main():
     data = Data()
     data.analyze()
@@ -239,10 +238,6 @@ if __name__ == "__main__":
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 To-do
 
-# Rotate and elongate
-# http://scipy-cookbook.readthedocs.io/items/FittingData.html  
-
-
-
+Use this file as a module
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
