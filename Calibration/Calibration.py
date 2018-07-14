@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from nptdms import TdmsFile
 from scipy.optimize import curve_fit
-
+from scipy.stats import norm
 
 ### Parameters ##################################
 
@@ -174,9 +174,9 @@ class Data(object):
             ch_m = running_mean(self.ch[n[i]][:len(t)], int(N_drive/10))
             sp.plot(t_m, ch_m, 'k-')
             sp.set_xlim([min(t), max(t)])               
-            sp.set_ylabel(y[i])   
-            sp.grid(True)      
-        sp.set_xlabel('Time (s)')     
+            sp.set_ylabel(y[i])       
+        sp.set_xlabel('Time (s)')  
+   
         fig.savefig('Trace.png')
         plt.close(fig)
                                   
@@ -184,23 +184,25 @@ class Data(object):
         fig = plt.figure(1, figsize = (20, 10), dpi=300)  
         sp = fig.add_subplot(121)
         sp.plot(self.ch[0][:N_block], self.ch[1][:N_block], 'k.')
+        sp.axis('equal')
         sp.set_aspect('equal')
         sp.set_xlabel('X (V)')
         sp.set_ylabel('Y (V)')   
-        sp.grid(True) 
+        sp.set_title('2D plot (V)')
 
         sp = fig.add_subplot(122)
         sp.plot(beta_x*self.ch[0][:N_block], beta_y*self.ch[1][:N_block], 'k.')
+        sp.axis('equal')
         sp.set_aspect('equal')
         sp.set_xlabel('X (nm)')
         sp.set_ylabel('Y (nm)')   
-        sp.grid(True)         
+        sp.set_title('2D plot (nm)')    
         
         fig.savefig('QPD_2D.png')
         plt.close(fig)
 
     def plot_fig3(self):
-        t = dt * np.arange(N_drive*5)
+        t = dt * np.arange(N_drive*10)
         t_m = t[::10]
         pzt_m = self.ch[self.os_axis+8][:len(t):10]
         
@@ -208,11 +210,16 @@ class Data(object):
         sp = fig.add_subplot(211)
         sp.plot(t, sine(t, self.pzt_A, self.pzt_t0, self.pzt_b), 'k')        
         sp.plot(t_m, pzt_m, 'ro')
-        sp.set_ylabel('PZT fit (nm)')
+        sp.set_xlim([min(t), max(t)])
+        sp.set_ylabel('PZT (nm)')
+        sp.set_title('PZT oscillation: Data (red) vs Fit (black)')
         
         sp = fig.add_subplot(212)
-        sp.plot(t, self.ch[self.os_axis+8][:len(t)]-sine(t, self.pzt_A, self.pzt_t0, self.pzt_b))        
+        sp.plot(t, self.ch[self.os_axis+8][:len(t)]-sine(t, self.pzt_A, self.pzt_t0, self.pzt_b), 'k')        
+        sp.set_xlabel('Time (s)')
         sp.set_ylabel('Residual (nm)')
+        sp.set_xlim([min(t), max(t)])
+
         fig.savefig('PZT.png')
         plt.close(fig)        
                 
@@ -225,8 +232,8 @@ class Data(object):
         sp.loglog(f, P_1(f, self.D1, self.fc1, self.D2, self.fc2), 'r-')
         sp.set_xlim([min(f), max(f)])         
         sp.set_xlabel('Frequency (Hz)')
-        sp.set_ylabel('Power (V^2/Hz)')
-        sp.grid(True)          
+        sp.set_ylabel('Power (V^2/Hz)')        
+        sp.set_title('PSD (black) and Fit (red)')
 
         sp = fig.add_subplot(132)              
         self.r1 = self.PSD_mean / P_1(f, self.D1, self.fc1, self.D2, self.fc2)          
@@ -234,12 +241,18 @@ class Data(object):
         sp.axhline(y=1, color='r', linestyle='solid', linewidth=2)
         sp.set_xlim([min(f), max(f)])         
         sp.set_xlabel('Frequency (Hz)')
-        sp.set_ylabel('Ratio [Exp/Fit]')
-        sp.grid(True)    
+        sp.set_ylabel('Ratio (exp / fit)')
+        sp.set_title('Data (black) vs Theory (red)')  
         
         sp = fig.add_subplot(133)
-        sp.hist(self.r1[f!=f_drive])                             
-                                                                                          
+        r = self.r1[f!=f_drive]
+        sp.hist(r, bins='auto', normed=True, histtype='step', color='k')   
+        x = np.arange(min(r), max(r), 0.01)
+        sp.plot(x, norm.pdf(x, 1, 1/(N_avg)**0.5), 'r')  
+        sp.set_xlabel('Ratio (exp / fit)')
+        sp.set_ylabel('Probability density')  
+        sp.set_title('Residual histogram (black) vs Theory (red)')   
+                                                                                                            
         fig.savefig('PSD.png')
         plt.close(fig)
 
