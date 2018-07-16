@@ -14,16 +14,15 @@ from scipy.stats import norm
 
 ### Parameters ##################################
 
-#fname = "X_50Hz_100nm_2018_07_06_17_23_48.tdms"
-fname = 'Y_50Hz_100nm_2018_07_06_17_26_19.tdms'
-#fname = 'White_Noise_X_2018_07_13_18_02_33.tdms'
-#fname = 'White_Noise_Y_2018_07_13_18_05_55.tdms'
+
+fname = 'Dark_noise_fs 20kHz_flp 20kHz_11_24_51.tdms'
+
 
 beta_x = 209.5
 beta_y = 120.5
 
-f_sample = 10000                    # Sampling rate
-f_lowpass = 5000
+f_sample = 20000                    # Sampling rate
+f_lowpass = 10000
 dt = 1/f_sample                     # Time interval during sampling
 t_total = 100                       # Total time in sec
 N_total = int(f_sample * t_total)    # Total number of data
@@ -35,7 +34,7 @@ N_avg = int(t_total / t_block)       # Num of blocks for averaging
 
 # PZT 
 f_drive = 50
-A_drive = 100
+A_drive = 0
 N_drive = int(f_sample/f_drive)
 PZT_nm2V = [5000, 5000, 3000]
 
@@ -91,10 +90,10 @@ class Data(object):
             self.ch[i,] = channel.data[range(N_total)]
             
         # Convert PZT unit from V to nm    
-        for i in range(3, 6):
-            pzt = self.ch[i,]
+        for i in range(3):
+            pzt = self.ch[i+3,]
             pzt = PZT_nm2V[i] * (pzt - np.mean(pzt))  
-            self.ch[i,] = pzt 
+            self.ch[i+3,] = pzt 
 
         print('Channel number = %d' % len(channels))
         print('Channel names = %s' % self.channel_name) 
@@ -156,6 +155,8 @@ class Data(object):
         self.W_th = 0.5*self.pzt_A**2 / (1 + (self.fc2 / f_drive)**2)
         self.W_ex = df * (self.PSD_mean[f==f_drive] - P_1(f_drive, self.D1, self.fc1, self.D2, self.fc2))
         self.beta = (self.W_th / self.W_ex)**0.5
+        if np.isnan(self.beta):
+            self.beta = 1
         self.kappa = 2*pi*self.fc2*kT/self.beta**2/self.D2
         self.gamma = kT/self.beta**2/self.D2
         self.R = self.gamma / (6*pi*rho*nu)
