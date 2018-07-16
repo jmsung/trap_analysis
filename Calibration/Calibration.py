@@ -11,11 +11,13 @@ import matplotlib.pyplot as plt
 from nptdms import TdmsFile
 from scipy.optimize import curve_fit
 from scipy.stats import norm
+import os
+import shutil
 
 ### Parameters ##################################
 
 
-fname = 'Dark_noise_fs 20kHz_flp 20kHz_11_24_51.tdms'
+fname = 'Dark_noise_fs 20kHz_flp 10kHz_11_22_05' 
 
 
 beta_x = 209.5
@@ -75,7 +77,7 @@ class Data(object):
 
     def read(self):
         # File information below
-        tdms_file = TdmsFile(fname) # Reads a tdms file.
+        tdms_file = TdmsFile(fname+'.tdms') # Reads a tdms file.
         root_object = tdms_file.object() # tdms file information 
 
         for name, value in root_object.properties.items():
@@ -103,7 +105,17 @@ class Data(object):
         print('Block time = %d [s]' % (t_block))
         print('Oscillation frequency = %d [Hz]' % (f_drive))
         print('Oscillation amplitude = %d [nm]\n' % (A_drive))
-        
+
+        # Make a directory to save results
+        self.data_path = os.getcwd()
+        self.dir = self.data_path+'\\%s' %(fname)
+        os.makedirs(self.dir)
+
+        if os.path.exists(self.dir):
+            shutil.rmtree(self.dir)
+            os.makedirs(self.dir)
+        else:
+            os.makedirs(self.dir)
       
     def analyze(self):
         # PZT fit > determine A, f_drive, Axis
@@ -182,8 +194,8 @@ class Data(object):
             sp.set_xlim([min(t), max(t)])               
             sp.set_ylabel(ch_name[i])       
         sp.set_xlabel('Time (s)')  
-   
-        fig.savefig('Trace.png')
+
+        fig.savefig(self.dir + '\\Trace.png')
         plt.close(fig)
                                   
     def plot_fig2(self): # XY
@@ -204,7 +216,7 @@ class Data(object):
         sp.set_ylabel('Y (nm)')   
         sp.set_title('2D plot (nm)')    
         
-        fig.savefig('QPD_2D.png')
+        fig.savefig(self.dir + '\\QPD_2D.png')
         plt.close(fig)
 
     def plot_fig3(self): # PZT
@@ -226,7 +238,7 @@ class Data(object):
         sp.set_ylabel('Residual (nm)')
         sp.set_xlim([min(t), max(t)])
 
-        fig.savefig('PZT.png')
+        fig.savefig(self.dir + '\\PZT.png')
         plt.close(fig)        
                 
     def plot_fig4(self): # PSD 
@@ -259,7 +271,7 @@ class Data(object):
         sp.set_ylabel('Probability density')  
         sp.set_title('Residual histogram (black) vs Theory (red)')   
                                                                                                             
-        fig.savefig('PSD.png')
+        fig.savefig(self.dir + '\\PSD.png')
         plt.close(fig)
 
 
