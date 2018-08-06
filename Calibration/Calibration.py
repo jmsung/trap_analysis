@@ -14,59 +14,63 @@ from scipy.stats import norm
 import os
 import shutil
 
-### Parameters ##################################
+### User input ##################################
 
+# First you need to change directory (cd) to where the file is located
 
-fname = 'Dark_noise_fs 20kHz_flp 10kHz_11_22_05' 
+# Update the file name
+fname = 'Y_50Hz_100nm_2018_07_06_17_26_19' 
 
+beta_x = 209.5 # This is actually the fitting result, not the user input
+beta_y = 120.5 # This is actually the fitting result, not the user input
 
-beta_x = 209.5
-beta_y = 120.5
-
-f_sample = 20000                    # Sampling rate
-f_lowpass = 10000
-dt = 1/f_sample                     # Time interval during sampling
-t_total = 100                       # Total time in sec
+f_sample = 20000                # Sampling frequency
+f_lowpass = 10000               # Anti-aliasing low pass filter (f_Nyq = f_sample/2)
+dt = 1/f_sample                 # Time interval during sampling
+t_total = 100                   # Total time in sec
 N_total = int(f_sample * t_total)    # Total number of data
 
-t_block = 1                    # Time for one block in sec
-N_block = int(f_sample * t_block)    # Num of data in a block
-df = 1/t_block                  # Freq interval for a block
-N_avg = int(t_total / t_block)       # Num of blocks for averaging
+# I use 1 sec window for PSD and do averaging of them
+t_window = 1                    # Time for one window in sec
+N_window = int(f_sample * t_window)    # Num of data in a window
+df = 1/t_window                  # Freq interval for a window
+N_avg = int(t_total / t_window)       # Num of windows for averaging
 
 # PZT 
-f_drive = 50
-A_drive = 0
-N_drive = int(f_sample/f_drive)
-PZT_nm2V = [5000, 5000, 3000]
+f_drive = 50                   # Oscillation frequency
+A_drive = 100                  # Oscillation amplitude
+N_drive = int(f_sample/f_drive) # Number of data in one oscillation
+PZT_nm2V = [5000, 5000, 3000]  # PZT Volt to nm conversion factor
 
 # Constants
 pi = 3.141592
-kT = 4.1 # pN nm
-R = 500 # Bead radius (nm)
+kT = 4.1    # Thermal energy (pN * nm)
+R = 500     # Bead radius, expected according to the spec (nm)   
 rho = 1e-21 # Density of water (and bead) (pN s^2/nm^4)
-nu = 1e12 # Kinematic viscosity of water (nm^2/s)
+nu = 1e12   # Kinematic viscosity of water (nm^2/s)
 gamma_0 = 6.*pi*rho*nu*R # Zero frequency Stokes drag coefficent (pN s/nm)
-D_0 = kT/gamma_0
+D_0 = kT/gamma_0    # Diffusion constant, expected
 mHI = 2*pi*rho*R**3 # Hydrodynamic mass of bead:
-fv = nu/(pi*R**2) # Hydrodynamic frequency:
+fv = nu/(pi*R**2)   # Hydrodynamic frequency:
 fm = gamma_0/(2.*pi*mHI) # Frequency for inertial relaxation:
 
 ch_name = ['QPD_x', 'QPD_y', 'QPD_z', 'PZT_x', 'PZT_y', 'PZT_z']
 
 ###############################################
 
-def running_mean(x, N=1000):
+def running_mean(x, N=1000): # Smoothening by running averaging
     cumsum = np.cumsum(np.insert(x, 0, 0)) 
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
-def sine(t, A, t0, b):
+def sine(t, A, t0, b): # Sine function
     return A * np.sin(2*pi*f_drive*(t-t0)) + b
 
 # Power spectrum excluding hydrodynamics:
 def P_0(f, D, fc):
     return D/(2*pi**2)/(fc**2 + f**2)
 
+# Power spectrum as sum of two Lorentzian. I use this one becasue it fits much better
+# I use higher freq fc for the trap stiffness. Lower fc might be due to low freq noise. 
 def P_1(f, D1, fc1, D2, fc2):
     return D1/(2.*pi**2)/(fc1**2 + f**2) + D2/(2.*pi**2)/(fc2**2 + f**2)
 
@@ -88,7 +92,7 @@ class Data(object):
         self.channel_name = [str(channels[i].channel) for i in range(0, len(channels))]
 
         self.ch = np.zeros((len(channels), N_total)) # Make a 2D array (ch, timetrace) for trap data
-        for i, channel in enumerate(channels):
+        for i, channel in enumerate(channels): 
             self.ch[i,] = channel.data[range(N_total)]
             
         # Convert PZT unit from V to nm    
@@ -102,14 +106,13 @@ class Data(object):
         print('Sampling frequency = %d [Hz]' % (f_sample))
         print('Lowpass filter frequency = %d [Hz]' % (f_lowpass))
         print('Total time = %d [s]' % (t_total))
-        print('Block time = %d [s]' % (t_block))
+        print('window time = %d [s]' % (t_window))
         print('Oscillation frequency = %d [Hz]' % (f_drive))
         print('Oscillation amplitude = %d [nm]\n' % (A_drive))
 
-        # Make a directory to save results
+        # Make a directory to save the results
         self.data_path = os.getcwd()
         self.dir = self.data_path+'\\%s' %(fname)
-        os.makedirs(self.dir)
 
         if os.path.exists(self.dir):
             shutil.rmtree(self.dir)
@@ -118,34 +121,36 @@ class Data(object):
             os.makedirs(self.dir)
       
     def analyze(self):
-        # PZT fit > determine A, f_drive, Axis
-        if max(self.ch[3,]) > max(self.ch[4,]):
-            self.os_axis = 0
+
+        # Find the oscillation axis
+        if max(self.ch[3,]) > max(self.ch[4,]): 
+            self.os_axis = 0 # X-axis
         else:
-            self.os_axis = 1
-        
-        t = dt * np.arange(N_block)
-        p_pzt, cov_pzt = curve_fit(sine, t, self.ch[self.os_axis+3,][:len(t)],  p0=[A_drive, 0, 0])
+            self.os_axis = 1 # Y-axis
+
+        # PZT fit > determine A, f_drive, Axis        
+        t = dt * np.arange(N_window)
+        p_pzt, cov_pzt = curve_fit(sine, t, self.ch[self.os_axis+3,][:len(t)],  p0=[A_drive, f_drive, 0])
         self.pzt_A = p_pzt[0]
         self.pzt_t0 = p_pzt[1]
         self.pzt_b = p_pzt[2]
 
         # Get PSD
-        self.PSD_mean = np.zeros((1, int(N_block/2)-1)) 
-        self.PSD_sem = np.zeros((1, int(N_block/2)-1))
+        self.PSD_mean = np.zeros((1, int(N_window/2)-1)) 
+        self.PSD_sem = np.zeros((1, int(N_window/2)-1))
         
-        x = self.ch[self.os_axis].reshape((N_avg, N_block))
-        psd = np.zeros((N_avg, int(N_block/2)-1))
+        x = self.ch[self.os_axis].reshape((N_avg, N_window))
+        psd = np.zeros((N_avg, int(N_window/2)-1))
             
-        for j in range(N_avg): # per block
-            psd0 = np.abs(dt*np.fft.fft(x[j]))**2/t_block
-            psd[j] = psd0[1:int(N_block/2)]
+        for j in range(N_avg): # per window
+            psd0 = np.abs(dt*np.fft.fft(x[j]))**2/t_window
+            psd[j] = psd0[1:int(N_window/2)]
             
         self.PSD_mean = np.mean(psd, axis=0)
         self.PSD_sem = np.std(psd, axis=0)/(N_avg)**0.5     
 
         # Fit PSD > Determine D_volt, fc
-        f = df * np.arange(1, N_block/2)   
+        f = df * np.arange(1, N_window/2)   
         fc_guess = f[np.argmin(abs(self.PSD_mean - self.PSD_mean[0]/2))]
         D_guess = 2 * pi**2 * fc_guess**2 * self.PSD_mean[0]    
 
@@ -178,14 +183,14 @@ class Data(object):
         print('A_fit = %f [nm])' % (abs(self.pzt_A)))
         print('beta = %f [nm/V]' %(self.beta))    
         print('kappa = %f [pN/nm]' %(self.kappa))
-        print('R = %d [nm] (dev = %d %%)' %(self.R, 100*(self.R-R)/R))  
         print('fc = %d [Hz]' % (self.fc2))                              
         print('D = %f [nm^2/s]' % (self.D2))
         print('gamma = %f [pN s/nm]' % (self.gamma))
+        print('R = %d [nm] (dev = %d %%)' %(self.R, 100*(self.R-R)/R))          
 
 
     def plot_fig1(self): # Time series 
-        t = dt * np.arange(N_block)     
+        t = dt * np.arange(N_window)     
         t_m = running_mean(t, int(N_drive/10))
         
         fig = plt.figure(1, figsize = (20, 10), dpi=300)  
@@ -197,13 +202,13 @@ class Data(object):
             sp.set_ylabel(ch_name[i])       
         sp.set_xlabel('Time (s)')  
 
-        fig.savefig(self.dir + '\\Trace.png')
+        fig.savefig(self.dir + '\\Fig1_Trace.png')
         plt.close(fig)
                                   
     def plot_fig2(self): # XY
         fig = plt.figure(1, figsize = (20, 10), dpi=300)  
         sp = fig.add_subplot(121)
-        sp.plot(self.ch[0][:N_block], self.ch[1][:N_block], 'k.')
+        sp.plot(self.ch[0][:N_window], self.ch[1][:N_window], 'k.')
         sp.axis('equal')
         sp.set_aspect('equal')
         sp.set_xlabel('X (V)')
@@ -211,14 +216,14 @@ class Data(object):
         sp.set_title('2D plot (V)')
 
         sp = fig.add_subplot(122)
-        sp.plot(beta_x*self.ch[0][:N_block], beta_y*self.ch[1][:N_block], 'k.')
+        sp.plot(beta_x*self.ch[0][:N_window], beta_y*self.ch[1][:N_window], 'k.')
         sp.axis('equal')
         sp.set_aspect('equal')
         sp.set_xlabel('X (nm)')
         sp.set_ylabel('Y (nm)')   
         sp.set_title('2D plot (nm)')    
         
-        fig.savefig(self.dir + '\\QPD_2D.png')
+        fig.savefig(self.dir + '\\Fig2_QPD2D.png')
         plt.close(fig)
 
     def plot_fig3(self): # PZT
@@ -240,11 +245,11 @@ class Data(object):
         sp.set_ylabel('Residual (nm)')
         sp.set_xlim([min(t), max(t)])
 
-        fig.savefig(self.dir + '\\PZT.png')
+        fig.savefig(self.dir + '\\Fig3_PZT.png')
         plt.close(fig)        
                 
     def plot_fig4(self): # PSD 
-        f = df * np.arange(1, N_block/2)   # Freq series of a block
+        f = df * np.arange(1, N_window/2)   # Freq series of a window
         fig = plt.figure(1, figsize = (20, 10), dpi=300)  
 
         sp = fig.add_subplot(131)              
@@ -273,7 +278,7 @@ class Data(object):
         sp.set_ylabel('Probability density')  
         sp.set_title('Residual histogram (black) vs Theory (red)')   
                                                                                                             
-        fig.savefig(self.dir + '\\PSD.png')
+        fig.savefig(self.dir + '\\Fig4_PSD.png')
         plt.close(fig)
 
 
