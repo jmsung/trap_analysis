@@ -173,6 +173,8 @@ class Data(object):
         self.gamma = kT/self.beta**2/self.D2
         self.R = self.gamma / (6*pi*rho*nu)
 
+# Faxen approx: gamma(R/l) = gamma0/(1 - (9*R)/(16*l) + R^3/(8*l^3))
+
         print('A_fit = %f [nm])' % (abs(self.pzt_A)))
         print('beta = %f [nm/V]' %(self.beta))    
         print('kappa = %f [pN/nm]' %(self.kappa))
