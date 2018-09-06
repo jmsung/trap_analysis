@@ -19,10 +19,10 @@ import shutil
 # First you need to change directory (cd) to where the file is located
 
 # Update the file name
-fname = 'Y_50Hz_100nm_2018_07_06_17_26_19' 
+fname = 'Cal5_y_13_52_08' 
 
-beta_x = 209.5 # This is actually the fitting result, not the user input
-beta_y = 120.5 # This is actually the fitting result, not the user input
+beta_x = 200 # This is actually the fitting result, not the user input
+beta_y = 200 # This is actually the fitting result, not the user input
 
 f_sample = 20000                # Sampling frequency
 f_lowpass = 10000               # Anti-aliasing low pass filter (f_Nyq = f_sample/2)
@@ -37,18 +37,19 @@ df = 1/t_window                  # Freq interval for a window
 N_avg = int(t_total / t_window)       # Num of windows for averaging
 
 # PZT 
-f_drive = 50                   # Oscillation frequency
-A_drive = 100                  # Oscillation amplitude
+f_drive = 100                   # Oscillation frequency
+A_drive = 50                  # Oscillation amplitude
 N_drive = int(f_sample/f_drive) # Number of data in one oscillation
 PZT_nm2V = [5000, 5000, 3000]  # PZT Volt to nm conversion factor
 
 # Constants
 pi = 3.141592
 kT = 4.1    # Thermal energy (pN * nm)
-R = 500     # Bead radius, expected according to the spec (nm)   
+R = 430     # Bead radius, expected according to the spec (nm)  
+L = 930 
 rho = 1e-21 # Density of water (and bead) (pN s^2/nm^4)
 nu = 1e12   # Kinematic viscosity of water (nm^2/s)
-gamma_0 = 6.*pi*rho*nu*R # Zero frequency Stokes drag coefficent (pN s/nm)
+gamma_0 = 6.*pi*rho*nu*R  # Zero frequency Stokes drag coefficent (pN s/nm)
 D_0 = kT/gamma_0    # Diffusion constant, expected
 mHI = 2*pi*rho*R**3 # Hydrodynamic mass of bead:
 fv = nu/(pi*R**2)   # Hydrodynamic frequency:
@@ -155,7 +156,7 @@ class Data(object):
         D_guess = 2 * pi**2 * fc_guess**2 * self.PSD_mean[0]    
 
         # LSQ: Sum of two Lorentzian
-        p_psd, cov_psd = curve_fit(P_1, f[f!=f_drive], self.PSD_mean[f!=f_drive], [2*D_guess, fc_guess/2, D_guess/2, 2*fc_guess])        
+        p_psd, cov_psd = curve_fit(P_1, f[f!=f_drive], self.PSD_mean[f!=f_drive], [5*D_guess, fc_guess/5, D_guess/10, 10*fc_guess])        
         self.D1 = abs(p_psd[0])
         self.fc1 = abs(p_psd[1])
         self.W1 = sum(P_0(f, self.D1, self.fc1))
@@ -169,26 +170,43 @@ class Data(object):
         print('D2 = %f [nm^2/s]\n' % (self.D2))
 
         # Determine beta, kappa_fit, gamma_fit, R_fit
-        self.W_th = 0.5*self.pzt_A**2 / (1 + (self.fc2 / f_drive)**2)
+        self.W_th1 = 0.5*self.pzt_A**2 / (1 + (self.fc1 / f_drive)**2)
+        self.W_th2 = 0.5*self.pzt_A**2 / (1 + (self.fc2 / f_drive)**2)
         self.W_ex = df * (self.PSD_mean[f==f_drive] - P_1(f_drive, self.D1, self.fc1, self.D2, self.fc2))
-        self.beta = (self.W_th / self.W_ex)**0.5
-        if np.isnan(self.beta):
-            self.beta = 1
-        self.kappa = 2*pi*self.fc2*kT/self.beta**2/self.D2
-        self.gamma = kT/self.beta**2/self.D2
-        self.R = self.gamma / (6*pi*rho*nu)
+        self.beta1 = (self.W_th1 / self.W_ex)**0.5
+        self.beta2 = (self.W_th2 / self.W_ex)**0.5
+#        if np.isnan(self.beta):
+#            self.beta = 1
+
+        self.kappa1 = 2*pi*self.fc1*kT/self.beta1**2/self.D1
+        self.gamma1 = kT/self.beta1**2/self.D1
+        self.R1 = self.gamma1 / (6*pi*rho*nu)
+        self.gamma10 = self.gamma1 * (1 - 9*self.R1 / (16*L))
+        self.R10 = self.gamma10 / (6*pi*rho*nu)
+
+        self.kappa2 = 2*pi*self.fc2*kT/self.beta2**2/self.D2
+        self.gamma2 = kT/self.beta2**2/self.D2
+        self.R2 = self.gamma2 / (6*pi*rho*nu)
+        self.gamma20 = self.gamma2 * (1 - 9*self.R2 / (16*L))
+        self.R20 = self.gamma20 / (6*pi*rho*nu)
 
 # Faxen approx: gamma(R/l) = gamma0/(1 - (9*R)/(16*l) + R^3/(8*l^3))
 
-        print('A_fit = %f [nm])' % (abs(self.pzt_A)))
-        print('beta = %f [nm/V]' %(self.beta))    
-        print('kappa = %f [pN/nm]' %(self.kappa))
-        print('fc = %d [Hz]' % (self.fc2))                              
-        print('D = %f [nm^2/s]' % (self.D2))
-        print('gamma = %f [pN s/nm]' % (self.gamma))
-        print('R = %d [nm] (dev = %d %%)' %(self.R, 100*(self.R-R)/R))          
+        print('A_fit = %f [nm]) \n' % (abs(self.pzt_A)))
+        print('beta1 = %f [nm/V]' %(self.beta1))  
+        print('fc1 = %d [Hz]' % (self.fc1))
+        print('kappa1 = %f [pN/nm]' %(self.kappa1))
+        print('R1 = %d [nm] (dev = %d %%)' %(self.R10, 100*(self.R10-R)/R))                               
+        print('D1 = %f [nm^2/s]' % (self.D1))
+        print('gamma1 = %f [pN s/nm] \n' % (self.gamma1))
 
-
+        print('beta2 = %f [nm/V]' %(self.beta2))  
+        print('fc2 = %d [Hz]' % (self.fc2))
+        print('kappa2 = %f [pN/nm]' %(self.kappa2))
+        print('R2 = %d [nm] (dev = %d %%)' %(self.R20, 100*(self.R20-R)/R))                               
+        print('D2 = %f [nm^2/s]' % (self.D2))
+        print('gamma2 = %f [pN s/nm]' % (self.gamma2))
+         
     def plot_fig1(self): # Time series 
         t = dt * np.arange(N_window)     
         t_m = running_mean(t, int(N_drive/10))
