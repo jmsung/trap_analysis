@@ -19,7 +19,7 @@ import shutil
 # First you need to change directory (cd) to where the file is located
 
 # Update the file name
-fname = 'Cal5_y_13_52_08' 
+fname = 'Cal6_y_13_56_52' 
 
 beta_x = 200 # This is actually the fitting result, not the user input
 beta_y = 200 # This is actually the fitting result, not the user input
@@ -37,8 +37,8 @@ df = 1/t_window                  # Freq interval for a window
 N_avg = int(t_total / t_window)       # Num of windows for averaging
 
 # PZT 
-f_drive = 100                   # Oscillation frequency
-A_drive = 50                  # Oscillation amplitude
+f_drive = 50                   # Oscillation frequency
+A_drive = 100                  # Oscillation amplitude
 N_drive = int(f_sample/f_drive) # Number of data in one oscillation
 PZT_nm2V = [5000, 5000, 3000]  # PZT Volt to nm conversion factor
 
@@ -113,7 +113,8 @@ class Data(object):
 
         # Make a directory to save the results
         self.data_path = os.getcwd()
-        self.dir = self.data_path+'\\%s' %(fname)
+#        self.dir = self.data_path+'\\%s' %(fname)
+        self.dir = os.path.join(self.data_path, fname)
 
         if os.path.exists(self.dir):
             shutil.rmtree(self.dir)
@@ -220,7 +221,8 @@ class Data(object):
             sp.set_ylabel(ch_name[i])       
         sp.set_xlabel('Time (s)')  
 
-        fig.savefig(self.dir + '\\Fig1_Trace.png')
+        fig.savefig(os.path.join(self.dir, 'Fig1_Trace.png'))
+
         plt.close(fig)
                                   
     def plot_fig2(self): # XY
@@ -241,7 +243,7 @@ class Data(object):
         sp.set_ylabel('Y (nm)')   
         sp.set_title('2D plot (nm)')    
         
-        fig.savefig(self.dir + '\\Fig2_QPD2D.png')
+        fig.savefig(os.path.join(self.dir, 'Fig2_QPD2D.png'))
         plt.close(fig)
 
     def plot_fig3(self): # PZT
@@ -263,7 +265,7 @@ class Data(object):
         sp.set_ylabel('Residual (nm)')
         sp.set_xlim([min(t), max(t)])
 
-        fig.savefig(self.dir + '\\Fig3_PZT.png')
+        fig.savefig(os.path.join(self.dir, 'Fig3_PZT.png'))
         plt.close(fig)        
                 
     def plot_fig4(self): # PSD 
@@ -296,7 +298,7 @@ class Data(object):
         sp.set_ylabel('Probability density')  
         sp.set_title('Residual histogram (black) vs Theory (red)')   
                                                                                                             
-        fig.savefig(self.dir + '\\Fig4_PSD.png')
+        fig.savefig(os.path.join(self.dir, 'Fig4_PSD.png'))
         plt.close(fig)
 
 
