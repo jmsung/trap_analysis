@@ -16,13 +16,13 @@ import shutil
 # First you need to change directory (cd) to where the file is located
 
 # Update the file name
-fname = 'M1_12_33_16' 
+fname = 'Test6_Y 8nm_Min 0pN_14_10_22' 
 
 # Parameters
 QPD_nm2V = [100, 60]      # QPD sensitivity (nm/V)
 stiffness_pN2nm = [0.05, 0.05]  # Stiffness [pN/nm]
 PZT_nm2V = [5000, 5000, 3000]  # PZT Volt to nm conversion factor
-MTA_nm2V = [1400, 1000]    # MTA_x [nm/V]
+MTA_nm2V = [1450, 950]    # MTA_x [nm/V]
 
 force_set = 0   # Set force for force-feedback [pN]
 
@@ -113,20 +113,24 @@ class Data(object):
 
     def plot_fig2(self): # Feedback data
 
-        dt = 5              # Length of block in sec
+        dt = 60              # Length of block in sec
         n = self.fs * dt    # Number of data in a block
         m = int(self.N / n) # Number of block
 
         t = self.t[:n*m]
-        y = self.MTAy + self.QPDy     
-      
+        
+        x = self.MTAx #+ self.QPDx           
+        y = self.MTAy #+ self.QPDy     
+         
+        x = x[:n*m] 
         y = y[:n*m]     
 
         t = t.reshape((m,n)) 
+        x = x.reshape((m,n))            
         y = y.reshape((m,n))         
 
         # Make a directory to save the fig2
-        path = os.path.join(self.path_save, 'Feedback')
+        path = os.path.join(self.path_save, 'Fig2_Feedback')
 
         if os.path.exists(path):
             shutil.rmtree(path)
@@ -136,14 +140,24 @@ class Data(object):
 
         for i in range(m):
             fig = plt.figure(i+10, figsize = (20, 10), dpi=300) 
-            sp = fig.add_subplot(111)
             ti = running_mean(t[i], 100)
-            yi = running_mean(y[i], 100)
-            sp.plot(ti, yi, 'b', linewidth=0.5)   
+            xi = running_mean(x[i], 100)               
+            yi = running_mean(y[i], 100)            
+
+            sp = fig.add_subplot(211)
+            sp.plot(ti, xi, 'b', linewidth=0.5)  
+            sp.set_ylabel('Step (nm)')            
+            for j in np.arange(np.min(x[i]), np.max(x[i])+8, 8):
+                sp.axhline(j, color='k', linestyle=':', linewidth=0.3)             
+
+            sp = fig.add_subplot(212)
+            sp.plot(ti, yi, 'b', linewidth=0.5)      
+            sp.set_ylabel('Step (nm)')                     
             for j in np.arange(np.min(y[i]), np.max(y[i])+8, 8):
                 sp.axhline(j, color='k', linestyle=':', linewidth=0.3)
+                           
             sp.set_xlabel('Time (s)')      
-            sp.set_ylabel('Step (nm)')
+
             fname = 'Fig2_Feedback_' + str(i) + '.png'
 #            fig.tight_layout()
             fig.savefig(os.path.join(path, fname))
@@ -173,7 +187,6 @@ To-do
 
 > step finding? use 8 nm grid to find offset > fitting with grid as ref
 > How to offset QPDx and QPDy for Force??
-> In the setup: beta, stiffness, MTA, 
 > Directly save/read from tmds (beta, stiffness, MTA, f_sample, f_lowpass, ch_name)
 > More details in the description (sample, bead, axoneme vs MT, coverslip, conc, stall force or feedback, )
 > Feedback axis?
