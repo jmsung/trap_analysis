@@ -13,10 +13,10 @@ import shutil
 
 ### User input ##################################
 
-# First you need to change directory (cd) to where the file is located
+# First, change directory (cd) to where the file is located
 
 # Update the file name
-fname = 'Trap3_Motor1_16_01_18' 
+fname = 'Trap1_Motor1_15_55_02' 
 
 # Parameters
 QPD_nm2V = [100, 60]      # QPD sensitivity (nm/V) at V_sum = 8 V.
@@ -24,9 +24,19 @@ stiffness_pN2nm = [0.1, 0.1]  # Stiffness [pN/nm]
 PZT_nm2V = [5000, 5000, 3000]  # PZT Volt to nm conversion factor
 MTA_nm2V = [1400, 1000]    # MTA_x [nm/V]
 
-t_block = 20
-f_lp = 20       # f_lowpass = 10 Hz
+# Stall force
+
+
+# Force feedback
+t_feedback = 10
+f_lp = 1000       # f_lowpass = 100 Hz
 force = [0, -1]    # Set force x for force-feedback [pN]
+
+# HFS
+t_HFS = 0.5
+fd = 100
+Ad = 100
+
 
 ###############################################
 
@@ -59,7 +69,7 @@ class Data(object):
         print("Channel number: %d" % self.channel_num)
         print("Channel name: %s" % self.channel_name) 
         print("Sampling rate: %d Hz" % self.fs)   
-        print("Data size: %d sec \n" % self.N*self.dt)  
+        print("Data size: %d sec \n" % int(self.N*self.dt))  
 
         # Read data
         print("Reading raw data ... \n")
@@ -87,7 +97,7 @@ class Data(object):
             
            
     def trace(self): # Time series    
-        print("Plotting time traces ...")
+        print("Plotting time traces ... \n")
         fig = plt.figure(1, figsize = (20, 10), dpi=300) 
         sp = fig.add_subplot(8, 1, 1)        
         sp.plot(self.t, self.QPDx, 'k', linewidth=0.5); sp.set_ylabel('QPDx [nm]')
@@ -111,19 +121,86 @@ class Data(object):
         plt.close(fig)            
 
     def stall(self): # Stall force analysis
-        print("Analyzing stall force data ...")
+        print("Analyzing stall force data ... \n")
+
+        # Make a directory to save the stall force result
+        path = os.path.join(self.path_save, 'Stall')
+
+        if os.path.exists(path):
+            shutil.rmtree(path)
+            os.makedirs(path)
+        else:
+            os.makedirs(path)  
+
+    def HFS(self):
+        print("Analyzing HFS data ... \n")   
+
+        if np.std(self.PZTx) > np.std(self.PZTy):
+            PZT = self.PZTx
+            Bead = self.QPDx
+            axis = 0
+        else:
+            PZT = self.PZTy
+            Bead = self.QPDy
+            axis = 1       
+          
+        n = int(self.fs * t_HFS)    # Number of data in a block
+        m = int(self.N / n)      # Number of block
+
+        t = self.t[:n*m]            
+        PZT = PZT[:n*m]           
+        Bead = Bead[:n*m]           
+
+        t = t.reshape((m,n)) 
+        PZT = PZT.reshape((m,n))                  
+        Bead = Bead.reshape((m,n))           
+
+        # Make a directory to save the Force feedback result
+        path = os.path.join(self.path_save, 'HFS')
+
+        if os.path.exists(path):
+            shutil.rmtree(path)
+            os.makedirs(path)
+        else:
+            os.makedirs(path)     
+
+        for i in range(m):            
+            fig = plt.figure(i+1000, figsize = (20, 10), dpi=300) 
+                                     
+            sp = fig.add_subplot(211)                     
+            sp.plot(t[i], PZT[i], 'k', linewidth=0.5)   
+            sp.set_ylabel('PZT (nm)') 
+            sp = fig.add_subplot(212)
+            sp.plot(t[i], Bead[i], 'k', linewidth=0.5)                                
+            sp.set_ylabel('Bead (nm)')
+            sp.set_xlabel('Time (s)')      
+
+            fname = 'HFS_' + str(i) + '.png'
+            fig.savefig(os.path.join(path, fname))
+            plt.close(fig)          
+        
+        
+        
+        # Make a directory to save the HFS result
+        path = os.path.join(self.path_save, 'HFS')
+
+        if os.path.exists(path):
+            shutil.rmtree(path)
+            os.makedirs(path)
+        else:
+            os.makedirs(path)        
                 
 
     def feedback(self): # Feedback data
-        print("Analyzing force-feedback data ...")
+        print("Analyzing force-feedback data ... \n")
         
         if np.std(self.MTAx) > np.std(self.MTAy):
             Trap = self.MTAx
-            Bead = Trap + self.QPDx + 20
+            Bead = Trap + self.QPDx + 5*force[0]/stiffness_pN2nm[0]
             axis = 0
         else:
             Trap = self.MTAy
-            Bead = Trap + self.QPDy + 20    
+            Bead = Trap + self.QPDy + 5*force[1]/stiffness_pN2nm[1]    
             axis = 1        
           
         n = self.fs * t_block    # Number of data in a block
@@ -133,14 +210,11 @@ class Data(object):
         Trap = Trap[:n*m]           
         Bead = Bead[:n*m]           
 
-
         t = t.reshape((m,n)) 
-        x = x.reshape((m,n))           
-        y = y.reshape((m,n))         
-        QPDx = QPDx.reshape((m,n))           
-        QPDy = QPDy.reshape((m,n))  
+        Trap = Trap.reshape((m,n))                  
+        Bead = Bead.reshape((m,n))           
 
-        # Make a directory to save the fig2
+        # Make a directory to save the Force feedback result
         path = os.path.join(self.path_save, 'Feedback')
 
         if os.path.exists(path):
@@ -151,37 +225,36 @@ class Data(object):
 
         for i in range(m):
             t_lp = running_mean(t[i], int(self.fs/f_lp))
-            QPDy_lp = running_mean(QPDy[i], int(self.fs/f_lp))              
+            Bead_lp = running_mean(Bead[i], int(self.fs/f_lp))              
             
             fig = plt.figure(i+10, figsize = (20, 10), dpi=300) 
                                      
             sp = fig.add_subplot(111)                     
-            sp.plot(t[i], y[i], 'r', linewidth=0.5)
-#            sp.plot(t[i], QPDy[i], 'b', linewidth=1.0)   
-            sp.plot(t_lp, QPDy_lp, 'b', linewidth=1.0)                      
-            for j in np.arange(np.min(y[i]), np.max(y[i])+8, 8):
+            sp.plot(t[i], Trap[i], 'r', linewidth=0.5)
+            sp.plot(t_lp, Bead_lp, 'b', linewidth=1.0)                      
+            for j in np.arange(np.min([Bead[i],Trap[i]])-8, np.max([Bead[i],Trap[i]])+8, 8):
                 sp.axhline(j, color='k', linestyle=':', linewidth=0.3)
             sp.set_ylabel('Step (nm)')
             sp.set_xlabel('Time (s)')      
 
-            fname = 'Fig2_Feedback_' + str(i) + '.png'
-#            fig.tight_layout()
+            fname = 'Feedback_' + str(i) + '.png'
             fig.savefig(os.path.join(path, fname))
             plt.close(fig)                                                                                                                                                                                                                           
 
     def analyze(self):
         self.trace()
-        if np.std(self.MTAx) < 1 and np.std(self.MTAy) < 1:                 
-            self.stall()
+        if np.std(self.PZTx) > 10 or np.std(self.PZTy) > 10:
+            self.HFS()
+        elif np.std(self.MTAx) > 10 or np.std(self.MTAy) > 10:                 
+            self.feedback() 
         else:
-            self.feedback()                           
+            self.stall()                          
                                                                                  
 
 def main():
     data = Data()
     data.read()
     data.analyze()
-
 
 
 

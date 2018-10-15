@@ -2,6 +2,7 @@
 # September 15, 2015
 
 # Import various modules
+from __future__ import division, print_function, absolute_import
 import numpy as np
 import os
 from pylab import *
@@ -84,7 +85,7 @@ for mol in molecules:
     amp_threshold1=mol['ampthreshold1']
     amp_threshold2=mol['ampthreshold2']
 
-    print directory
+    print(directory)
 
     # Make results directory if it does not exist
     resultsdir=directory+'/Results_WaveletAnalysis' #_test8
@@ -122,7 +123,7 @@ for mol in molecules:
 
     # Loop over datafiles
     for datafile in datafiles:
-        print 'Analyzing '+datafile
+        print('Analyzing '+datafile)
         
         # List for tuples of start and end positions of events
         allevents=[]
