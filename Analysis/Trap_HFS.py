@@ -33,7 +33,7 @@ fc = stiffness_pN2nm[1] / (2*pi*gamma)
 
 f_drive = 100 # Hz
 A_drive = 100 # nm
-t_block = 1
+t_block = 10
 
 #A_cut = 35
 #P_cut = -0.9 
@@ -194,14 +194,18 @@ class Data(object):
             P_m = running_mean(QPD_P[i])
                                                                 
             fig = plt.figure(i, figsize = (20, 10), dpi=300) 
-      
-            sp = fig.add_subplot(511)
+
+            sp = fig.add_subplot(611)                     
+            sp.plot(t[i], PZT[i] - PZT_fit[i], 'k', linewidth=0.5)              
+            sp.set_ylabel('PZT - PZT_fit (nm)')       
+                  
+            sp = fig.add_subplot(612)
             sp.plot(t[i], QPD[i], 'k', linewidth=1)      
             sp.plot(t[i][AP_out[i]], QPD[i][AP_out[i]], 'r.', ms=2)                                                                
             sp.axhline(y=0, color='g', linestyle='dashed', linewidth=1)   
             sp.set_ylabel('QPD (nm)')
             
-            sp = fig.add_subplot(512)   
+            sp = fig.add_subplot(613)   
             sp.plot(t[i], QPD_A[i], 'k', linewidth=1)    
             sp.plot(t[i][A_out[i]], QPD_A[i][A_out[i]], 'b.', ms=2)             
             sp.plot(t[i][AP_out[i]], QPD_A[i][AP_out[i]], 'r.', ms=2)           
@@ -210,7 +214,7 @@ class Data(object):
 #            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)  
             sp.set_ylabel('Amplitude (nm)')
             
-            sp = fig.add_subplot(513)   
+            sp = fig.add_subplot(614)   
             sp.plot(t_m, A_m, 'k', linewidth=1)    
             sp.plot(t[i][A_out[i]], QPD_A[i][A_out[i]], 'b.', ms=2)             
             sp.plot(t[i][AP_out[i]], QPD_A[i][AP_out[i]], 'r.', ms=2)              
@@ -219,7 +223,7 @@ class Data(object):
 #            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)                                         
             sp.set_ylabel('Amplitude_Avg (nm)')
                     
-            sp = fig.add_subplot(514)     
+            sp = fig.add_subplot(615)     
             sp.plot(t[i], QPD_P[i], 'k', linewidth=1)   
             sp.plot(t[i][P_out[i]], QPD_P[i][P_out[i]], 'b.', ms=2)             
             sp.plot(t[i][AP_out[i]], QPD_P[i][AP_out[i]], 'r.', ms=2)       
@@ -229,7 +233,7 @@ class Data(object):
 #            sp.axhline(y=p0, color='k', linestyle='dashed', linewidth=1) 
             sp.set_ylabel('Phase (rad)')            
                             
-            sp = fig.add_subplot(515)      
+            sp = fig.add_subplot(616)      
             sp.plot(t_m, P_m, 'k', linewidth=1) 
             sp.plot(t[i][P_out[i]], QPD_P[i][P_out[i]], 'b.', ms=2)             
             sp.plot(t[i][AP_out[i]], QPD_P[i][AP_out[i]], 'r.', ms=2)                          
@@ -239,10 +243,6 @@ class Data(object):
 #            sp.axhline(y=p0, color='k', linestyle='dashed', linewidth=1)                                              
             sp.set_ylabel('Phase_Avg (rad)')
             sp.set_xlabel('Time (s)')   
-
-#            sp = fig.add_subplot(611)                     
-#            sp.plot(t[i], PZT[i] - PZT_fit[i], 'k', linewidth=0.5)              
-#            sp.set_ylabel('PZT - PZT_fit (nm)') 
             
 #            sp = fig.add_subplot(311)
 #            sp.plot(t[i], QPDs[i], 'k', linewidth=0.5)                                
