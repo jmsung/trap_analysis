@@ -33,11 +33,11 @@ fc = stiffness_pN2nm[1] / (2*pi*gamma)
 
 f_drive = 100 # Hz
 A_drive = 100 # nm
-t_block = 10
+t_block = 5
 
 #A_cut = 35
 #P_cut = -0.9 
-n_avg = 30
+n_avg = 300
 
 ###############################################
 
@@ -60,7 +60,7 @@ def reject_outliers(data, m = 2.):
     s = d/mdev if mdev else 0.
     return data[s<m]
 
-def outliers(data, m = 3.):
+def outliers(data, m = 2.):
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
     cutoff = np.median(data) + m * mdev
@@ -151,7 +151,7 @@ class Data(object):
 
         self.QPD_p = np.concatenate((QPD_P[0]*np.ones(int(T/2)), QPD_P, QPD_P[-1]*np.ones(int(T/2))))
 
-    def find_index_over_cutoff(self, t, QPD_A, QPD_P):
+    def find_index_over_cutoff(self, t, QPD_A, QPD_P, A_cut, P_cut):
             t_m = running_mean(t)
             A_m = running_mean(QPD_A)
             P_m = running_mean(QPD_P)
@@ -188,24 +188,24 @@ class Data(object):
        
         print("Plotting traces ... \n")
         for i in range(m):                   
-#            [t_m, A_m, P_m, i_A_m, i_P_m, i_AP_m, i_AP] = self.find_index_over_cutoff(t[i], QPD_A[i], QPD_P[i])
+            [t_m, A_m, P_m, i_A_m, i_P_m, i_AP_m, i_AP] = self.find_index_over_cutoff(t[i], QPD_A[i], QPD_P[i], A_cut, P_cut)
             t_m = running_mean(t[i])
             A_m = running_mean(QPD_A[i])
             P_m = running_mean(QPD_P[i])
                                                                 
             fig = plt.figure(i, figsize = (20, 10), dpi=300) 
 
-            sp = fig.add_subplot(611)                     
-            sp.plot(t[i], PZT[i] - PZT_fit[i], 'k', linewidth=0.5)              
-            sp.set_ylabel('PZT - PZT_fit (nm)')       
+#            sp = fig.add_subplot(611)                     
+#            sp.plot(t[i], PZT[i] - PZT_fit[i], 'k', linewidth=0.5)              
+#            sp.set_ylabel('PZT - PZT_fit (nm)')       
                   
-            sp = fig.add_subplot(612)
+            sp = fig.add_subplot(511)
             sp.plot(t[i], QPD[i], 'k', linewidth=1)      
-            sp.plot(t[i][AP_out[i]], QPD[i][AP_out[i]], 'r.', ms=2)                                                                
+            sp.plot(t[i][i_AP], QPD[i][i_AP], 'r.', ms=2)                                                                
             sp.axhline(y=0, color='g', linestyle='dashed', linewidth=1)   
             sp.set_ylabel('QPD (nm)')
             
-            sp = fig.add_subplot(613)   
+            sp = fig.add_subplot(512)   
             sp.plot(t[i], QPD_A[i], 'k', linewidth=1)    
             sp.plot(t[i][A_out[i]], QPD_A[i][A_out[i]], 'b.', ms=2)             
             sp.plot(t[i][AP_out[i]], QPD_A[i][AP_out[i]], 'r.', ms=2)           
@@ -214,16 +214,16 @@ class Data(object):
 #            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)  
             sp.set_ylabel('Amplitude (nm)')
             
-            sp = fig.add_subplot(614)   
+            sp = fig.add_subplot(513)   
             sp.plot(t_m, A_m, 'k', linewidth=1)    
-            sp.plot(t[i][A_out[i]], QPD_A[i][A_out[i]], 'b.', ms=2)             
-            sp.plot(t[i][AP_out[i]], QPD_A[i][AP_out[i]], 'r.', ms=2)              
+            sp.plot(t_m[i_A_m], A_m[i_A_m], 'b.', ms=2)             
+            sp.plot(t_m[i_AP_m], A_m[i_AP_m], 'r.', ms=2)             
             sp.axhline(y=np.median(reject_outliers(QPD_A)), color='g', linestyle='dashed', linewidth=1)
             sp.axhline(y=A_cut, color='b', linestyle='dashed', linewidth=1) 
 #            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)                                         
             sp.set_ylabel('Amplitude_Avg (nm)')
                     
-            sp = fig.add_subplot(615)     
+            sp = fig.add_subplot(514)     
             sp.plot(t[i], QPD_P[i], 'k', linewidth=1)   
             sp.plot(t[i][P_out[i]], QPD_P[i][P_out[i]], 'b.', ms=2)             
             sp.plot(t[i][AP_out[i]], QPD_P[i][AP_out[i]], 'r.', ms=2)       
@@ -233,10 +233,10 @@ class Data(object):
 #            sp.axhline(y=p0, color='k', linestyle='dashed', linewidth=1) 
             sp.set_ylabel('Phase (rad)')            
                             
-            sp = fig.add_subplot(616)      
+            sp = fig.add_subplot(515)      
             sp.plot(t_m, P_m, 'k', linewidth=1) 
-            sp.plot(t[i][P_out[i]], QPD_P[i][P_out[i]], 'b.', ms=2)             
-            sp.plot(t[i][AP_out[i]], QPD_P[i][AP_out[i]], 'r.', ms=2)                          
+            sp.plot(t_m[i_P_m], P_m[i_P_m], 'b.', ms=2)             
+            sp.plot(t_m[i_AP_m], P_m[i_AP_m], 'r.', ms=2)                         
             sp.axhline(y=np.median(reject_outliers(QPD_P)), color='g', linestyle='dashed', linewidth=1)
 #            sp.axhline(y=0, color='k', linestyle='dashed', linewidth=1)                            
             sp.axhline(y=P_cut, color='b', linestyle='dashed', linewidth=1)    
