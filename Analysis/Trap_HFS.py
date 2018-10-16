@@ -60,6 +60,13 @@ def reject_outliers(data, m = 2.):
     s = d/mdev if mdev else 0.
     return data[s<m]
 
+def outliers(data, m = 3.):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    cutoff = np.median(data) + m * mdev
+    outliers = data > cutoff
+    return cutoff, outliers
+
 class Event(object):
     def __init__(self):
         pass
@@ -101,6 +108,7 @@ class Data(object):
         self.QPDy = self.QPDy[:self.T*self.n_os]  
         self.QPDs = self.QPDs[:self.T*self.n_os]     
         self.PZTy = self.PZTy[:self.T*self.n_os]    
+
 
     def wavelet_transformation(self):
         t = self.t
@@ -166,10 +174,18 @@ class Data(object):
         PZT_fit = self.PZT_fit[:n*m].reshape((m,n))     
         QPD_A = self.QPD_A[:n*m].reshape((m,n))       
         QPD_P = self.QPD_p[:n*m].reshape((m,n))       
-        
+
+        A_cut, A_out = outliers(self.QPD_A)
+        P_cut, P_out = outliers(self.QPD_p)        
+        AP_out = A_out & P_out
+
+        A_out = A_out[:n*m].reshape((m,n)) 
+        P_out = P_out[:n*m].reshape((m,n)) 
+        AP_out = AP_out[:n*m].reshape((m,n)) 
+  
         p0 = atan(f_drive/fc) - pi/2
         A0 = np.max(PZT_fit)/(1 + (fc/f_drive)**2)**0.5                
-        
+       
         print("Plotting traces ... \n")
         for i in range(m):                   
             [t_m, A_m, P_m, i_A_m, i_P_m, i_AP_m, i_AP] = self.find_index_over_cutoff(t[i], QPD_A[i], QPD_P[i])
@@ -182,7 +198,7 @@ class Data(object):
             
             sp = fig.add_subplot(511)
             sp.plot(t[i], QPD[i], 'k', linewidth=1)      
-            sp.plot(t[i][i_AP], QPD[i][i_AP], 'r.', ms=2)                                                    
+            sp.plot(t[AP_out][i], QPD[AP_out][i], 'r.', ms=2)                                                                
             sp.axhline(y=0, color='g', linestyle='dashed', linewidth=1)   
             sp.set_ylabel('QPD (nm)')
             
@@ -192,35 +208,38 @@ class Data(object):
             
             sp = fig.add_subplot(512)   
             sp.plot(t_m, A_m, 'k', linewidth=1)    
-            sp.plot(t_m[i_A_m], A_m[i_A_m], 'b.', ms=2) 
-            sp.plot(t_m[i_AP_m], A_m[i_AP_m], 'r.', ms=2)             
+#            sp.plot(t_m[i_A_m], A_m[i_A_m], 'b.', ms=2) 
+#            sp.plot(t_m[i_AP_m], A_m[i_AP_m], 'r.', ms=2)               
             sp.axhline(y=np.median(reject_outliers(QPD_A)), color='g', linestyle='dashed', linewidth=1)
-            sp.axhline(y=A_cut, color='g', linestyle='dashed', linewidth=1) 
-#            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)    
-#            sp.axhline(y=np.max(PZT_fit), color='k', linestyle='dashed', linewidth=1)                                      
+            sp.axhline(y=A_cut, color='b', linestyle='dashed', linewidth=1) 
+#            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)                                         
             sp.set_ylabel('Amplitude (nm)')
             
             sp = fig.add_subplot(513)   
             sp.plot(t[i], QPD_A[i], 'k', linewidth=1)    
-            sp.plot(t[i][i_AP], QPD_A[i][i_AP], 'r.', ms=2)           
+#            sp.plot(t[i][i_AP], QPD_A[i][i_AP], 'r.', ms=2)           
             sp.axhline(y=np.median(reject_outliers(QPD_A)), color='g', linestyle='dashed', linewidth=1)
+            sp.axhline(y=A_cut, color='b', linestyle='dashed', linewidth=1) 
+#            sp.axhline(y=A0, color='k', linestyle='dashed', linewidth=1)  
             sp.set_ylabel('Amplitude (nm)')
                         
             sp = fig.add_subplot(514)      
             sp.plot(t_m, P_m, 'k', linewidth=1) 
-            sp.plot(t_m[i_P_m], P_m[i_P_m], 'b.', ms=2)  
-            sp.plot(t_m[i_AP_m], P_m[i_AP_m], 'r.', ms=2)                           
+#            sp.plot(t_m[i_P_m], P_m[i_P_m], 'b.', ms=2)  
+#            sp.plot(t_m[i_AP_m], P_m[i_AP_m], 'r.', ms=2)                           
             sp.axhline(y=np.median(reject_outliers(QPD_P)), color='g', linestyle='dashed', linewidth=1)
-            sp.axhline(y=0, color='g', linestyle='dashed', linewidth=1)                            
-            sp.axhline(y=P_cut, color='g', linestyle='dashed', linewidth=1)    
-#            sp.axhline(y=phi0, color='k', linestyle='dashed', linewidth=1)                                              
+#            sp.axhline(y=0, color='k', linestyle='dashed', linewidth=1)                            
+            sp.axhline(y=P_cut, color='b', linestyle='dashed', linewidth=1)    
+#            sp.axhline(y=p0, color='k', linestyle='dashed', linewidth=1)                                              
             sp.set_ylabel('Phase (rad)')
             
             sp = fig.add_subplot(515)     
             sp.plot(t[i], QPD_P[i], 'k', linewidth=1)   
-            sp.plot(t[i][i_AP], QPD_P[i][i_AP], 'r.', ms=2)      
+#            sp.plot(t[i][i_AP], QPD_P[i][i_AP], 'r.', ms=2)      
             sp.axhline(y=np.median(reject_outliers(QPD_P)), color='g', linestyle='dashed', linewidth=1)                    
-            sp.axhline(y=0, color='g', linestyle='dashed', linewidth=1)       
+#            sp.axhline(y=0, color='k', linestyle='dashed', linewidth=1)       
+            sp.axhline(y=P_cut, color='b', linestyle='dashed', linewidth=1)    
+#            sp.axhline(y=p0, color='k', linestyle='dashed', linewidth=1) 
             sp.set_ylabel('Phase (rad)')            
             sp.set_xlabel('Time (s)')      
 
@@ -451,7 +470,7 @@ def main():
     mol.read_data()
     mol.transform()
     mol.plot_traces()    
-    mol.detect_events()
+#    mol.detect_events()
     mol.combine_events()
     mol.fitting()
     
