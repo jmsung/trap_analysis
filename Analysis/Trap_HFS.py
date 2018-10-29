@@ -32,17 +32,17 @@ gamma0 = 6.*pi*rho*nu*R
 gamma = gamma0/(1-9*R/(16*L)+R**3/(8*L**3)-45*R**4/(256*L**4)-R**5/(16*L**5))  # Zero frequency Stokes drag coefficent (pN s/nm)
 fc = stiffness_pN2nm[1] / (2*pi*gamma)
 
-f_drive = 100 # Hz
+f_drive = 50 # Hz
 A_drive = 100 # nm
 t_block = 10
 n_avg = 20
 
 t_short = 1.0/f_drive/2
 t_long = 0.5
-A_RMSD_cut = 20
-QPD_RMSD_cut = 20
+A_RMSD_cut = 10
+QPD_RMSD_cut = 10
 Abu_cut = 1.2
-outlier_cut = 5
+outlier_cut = 6
 
 ###############################################
 
@@ -126,87 +126,97 @@ class Event(object):
             return False
 
     def fit_QPD(self, t, QPD, dQPD, tb, tu):
-        # Bound state
-        ib = np.array(t >= tb, dtype=bool) & np.array(t <= tu, dtype=bool)    
-        ib_fit = np.array(self.t_fit >= tb, dtype=bool) & np.array(self.t_fit <= tu, dtype=bool)            
-        p0_b = [A_drive/2, 0, 0]
-        lb_b = (0, -pi, -A_drive)
-        ub_b = (A_drive, pi, A_drive)
-        p_b, cov = curve_fit(sine, t[ib], QPD[ib], p0_b, bounds = (lb_b, ub_b))
-        QPD_b = sine(self.t[ib], p_b[0], p_b[1], p_b[2])  
 
-        # Unbound state
-        iu = ~ib
-        iu_fit = ~ib_fit
-        p0_u = [A_drive/4, 0, 0]
-        lb_u = (0, -pi, -A_drive)
-        ub_u = (A_drive, pi, A_drive)
-        p_u, cov = curve_fit(sine, t[iu], QPD[iu], p0_u, bounds = (lb_u, ub_u))
-        QPD_u = sine(self.t[iu], p_u[0], p_u[1], p_u[2])  
+        try:
+            # Bound state
+            ib = np.array(t >= tb, dtype=bool) & np.array(t <= tu, dtype=bool)    
+            ib_fit = np.array(self.t_fit >= tb, dtype=bool) & np.array(self.t_fit <= tu, dtype=bool)            
+            p0_b = [A_drive/2, 0, 0]
+            lb_b = (0, -pi, -A_drive)
+            ub_b = (A_drive, pi, A_drive)
+            p_b, cov = curve_fit(sine, t[ib], QPD[ib], p0_b, bounds = (lb_b, ub_b))
+            QPD_b = sine(self.t[ib], p_b[0], p_b[1], p_b[2])  
 
-        if p_b[0]/p_u[0] < Abu_cut:
-            print("A_b / A_u = %.2f" %(p_b[0] / p_u[0]))
-            return False
+            # Unbound state
+            iu = ~ib
+            iu_fit = ~ib_fit
+            p0_u = [A_drive/4, 0, 0]
+            lb_u = (0, -pi, -A_drive)
+            ub_u = (A_drive, pi, A_drive)
+            p_u, cov = curve_fit(sine, t[iu], QPD[iu], p0_u, bounds = (lb_u, ub_u))
+            QPD_u = sine(self.t[iu], p_u[0], p_u[1], p_u[2])  
 
-        QPD_fit = np.zeros(len(t))
-        QPD_fit[ib] = QPD_b
-        QPD_fit[iu] = QPD_u
-        self.QPD_RMSD = (np.mean((QPD - QPD_fit)**2))**0.5       
+            if p_b[0]/p_u[0] < Abu_cut:
+                print("A_b / A_u = %.2f" %(p_b[0] / p_u[0]))
+                return False
 
-        if self.QPD_RMSD > QPD_RMSD_cut:
-            print("QPD RMSD = %.2f" %(self.QPD_RMSD))
-            return False
+            QPD_fit = np.zeros(len(t))
+            QPD_fit[ib] = QPD_b
+            QPD_fit[iu] = QPD_u
+            self.QPD_RMSD = (np.mean((QPD - QPD_fit)**2))**0.5       
+
+            if self.QPD_RMSD > QPD_RMSD_cut:
+                print("QPD RMSD = %.2f" %(self.QPD_RMSD))
+                return False
             
-        self.dQPD = dQPD
-        self.QPD = QPD
-        self.QPD_fit = np.zeros(len(self.t_fit))
-        self.QPD_fit[ib_fit] = sine(self.t_fit[ib_fit], p_b[0], p_b[1], p_b[2]) 
-        self.QPD_fit[iu_fit] = sine(self.t_fit[iu_fit], p_u[0], p_u[1], p_u[2]) 
-        self.offset_b = p_b[2]
-        self.offset_u = p_u[2]
-        self.Ph_b = p_b[1]
-        self.Ph_u = p_u[1]
-        self.QPD_Ab = p_b[0]
-        self.QPD_Au = p_u[0]
-        self.ib = ib_fit
-        self.Fs = self.offset_b * stiffness_pN2nm[1]
-
-        X = sine(self.t_fit, p_b[0], p_b[1], p_b[2])
-        V = sine(self.t_fit, p_b[0], p_b[1] + pi/2, p_b[2])
-        i_b = np.abs(self.t_fit - tb).argmin() 
-        Xb = X[i_b]  
-        Vb = V[i_b] 
-        Pb = atan(2*pi*f_drive * Xb / Vb) - p_b[1]
-        self.QPD_Pb = np.mod(Pb, 2*pi)
-
-        return True
-
+            self.dQPD = dQPD
+            self.QPD = QPD
+            self.QPD_fit = np.zeros(len(self.t_fit))
+            self.QPD_fit[ib_fit] = sine(self.t_fit[ib_fit], p_b[0], p_b[1], p_b[2]) 
+            self.QPD_fit[iu_fit] = sine(self.t_fit[iu_fit], p_u[0], p_u[1], p_u[2]) 
+            self.offset_b = p_b[2]
+            self.offset_u = p_u[2]
+            self.Ph_b = p_b[1]
+            self.Ph_u = p_u[1]
+            self.QPD_Ab = p_b[0]
+            self.QPD_Au = p_u[0]
+            self.ib = ib_fit
+            self.Fs = self.offset_b * stiffness_pN2nm[1]
+    
+            X = sine(self.t_fit, p_b[0], p_b[1], p_b[2])
+            V = sine(self.t_fit, p_b[0], p_b[1] + pi/2, p_b[2])
+            i_b = np.abs(self.t_fit - tb).argmin() 
+            Xb = X[i_b]  
+            Vb = V[i_b] 
+            Pb = atan(2*pi*f_drive * Xb / Vb) - p_b[1]
+            self.QPD_Pb = np.mod(Pb, 2*pi)
+    
+            return True
+            
+        except:
+            print("Unexpected error", sys.exc_info()[0])
+            return False
 
     def fit_PZT(self, t, PZT, tb, tu):
-        p0 = [A_drive*0.8, 0, 0]
-        lb = (A_drive*0.5, -pi, -10)
-        ub = (A_drive, pi, 10)
-        p, cov = curve_fit(sine, t, PZT, p0, bounds=(lb, ub))
-        self.PZT = PZT
-        self.PZT_fit = sine(self.t_fit, p[0], p[1], p[2])
-        self.PZT_vel = sine(self.t_fit, p[0], p[1]+pi/2, 0)*(2*pi*f_drive)
-        i_b = np.abs(self.t_fit - tb).argmin()
-        i_u = np.abs(self.t_fit - tu).argmin()
-        self.Vb = self.PZT_vel[i_b]
-        self.Vu = self.PZT_vel[i_u]     
-        self.Xb = self.PZT_fit[i_b]  
-        self.Xu = self.PZT_fit[i_u]  
-        Pb = atan(2*pi*f_drive * self.Xb / self.Vb) - p[1]
-        Pu = atan(2*pi*f_drive * self.Xu / self.Vu) - p[1]        
-        self.PZT_Pb = np.mod(Pb, 2*pi)
-        self.PZT_Pu = np.mod(Pu, 2*pi)    
+        try:
+            p0 = [A_drive*0.8, 0, 0]
+            lb = (A_drive*0.5, -pi, -10)
+            ub = (A_drive, pi, 10)
+            p, cov = curve_fit(sine, t, PZT, p0, bounds=(lb, ub))
+            self.PZT = PZT
+            self.PZT_fit = sine(self.t_fit, p[0], p[1], p[2])
+            self.PZT_vel = sine(self.t_fit, p[0], p[1]+pi/2, 0)*(2*pi*f_drive)
+            i_b = np.abs(self.t_fit - tb).argmin()
+            i_u = np.abs(self.t_fit - tu).argmin()
+            self.Vb = self.PZT_vel[i_b]
+            self.Vu = self.PZT_vel[i_u]     
+            self.Xb = self.PZT_fit[i_b]  
+            self.Xu = self.PZT_fit[i_u]  
+            Pb = atan(2*pi*f_drive * self.Xb / self.Vb) - p[1]
+            Pu = atan(2*pi*f_drive * self.Xu / self.Vu) - p[1]        
+            self.PZT_Pb = np.mod(Pb, 2*pi)
+            self.PZT_Pu = np.mod(Pu, 2*pi)    
         
-        t = np.linspace(0, 1/f_drive, 10000) 
-        PZT1 = sine(t, p[0], 0, p[2])
-        QPD1 = sine(t, self.QPD_Au, self.Ph_u-p[1], self.offset_u)  
-        PZT_QPD = PZT1-QPD1
-        self.PZT_QPD = PZT_QPD / np.max(PZT_QPD)
-    
+            t = np.linspace(0, 1/f_drive, 10000) 
+            PZT1 = sine(t, p[0], 0, p[2])
+            QPD1 = sine(t, self.QPD_Au, self.Ph_u-p[1], self.offset_u)  
+            PZT_QPD = PZT1-QPD1
+            self.PZT_QPD = PZT_QPD / np.max(PZT_QPD)
+
+        except:
+            print("Unexpected error", sys.exc_info()[0])
+            return False    
+            
         
 class Data(object):
     def __init__(self, name):
@@ -577,14 +587,15 @@ class Molecule(object):
         Fm = np.linspace(min(Fs), max(Fs), 10)
         dm = (Fm[1]-Fm[0])*0.5
         tm = np.zeros(len(Fm))
-        tm_s = np.zeros(len(Fm))
+#        tm_s = np.zeros(len(Fm))
         
         for i in range(len(Fm)):
             ix = np.array(Fs>Fm[i]-dm, dtype=bool) & np.array(Fs<=Fm[i]+dm, dtype=bool)
-            tm[i] = np.mean(ts[ix])
-            tm_s[i] = np.std(ts[ix]) / (len(ts[ix]))**0.5
+            if len(ix) > 0:
+                tm[i] = np.mean(ts[ix])
+#            tm_s[i] = np.std(ts[ix]) / (len(ts[ix]))**0.5
     
-        params, cov = curve_fit(exp, Fm, tm, p0=[50, -2])
+        params, cov = curve_fit(exp, Fm[tm>0], tm[tm>0], p0=[50, 2])
         t0, dF = params
         Fm_fit = np.linspace(min(Fs), max(Fs), 1000)
         tm_fit = exp(Fm_fit, t0, dF)
@@ -616,7 +627,7 @@ class Molecule(object):
         fig = plt.figure('P-B', figsize = (20, 10), dpi=300)    
                       
         sp = fig.add_subplot(121)   
-        Pb_bins = np.linspace(0, 2*pi, 11)
+        Pb_bins = np.linspace(0, 2*pi, 9)
         sp.hist(PZT_Pb, bins=Pb_bins, histtype='stepfilled', lw=2)
         sp.axvline(x=pi*0.5, c='k', ls='dotted', lw=1) 
         sp.axvline(x=pi*1.0, c='k', ls='dotted', lw=1) 
@@ -687,9 +698,9 @@ def main():
     mol.read_data()
     mol.transform()
     mol.find_binding()
-#    mol.plot_traces()    
+    mol.plot_traces()    
     mol.find_events()
-#    mol.plot_events()
+    mol.plot_events()
     mol.show_results()
 
     
