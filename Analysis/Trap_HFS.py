@@ -18,6 +18,8 @@ import sys
 
 ### User input ##################################
 
+# Box sync test
+
 calibrate = False
 QPD_nm2V = [100, 60]      # QPD sensitivity (nm/V) at V_sum = 8 V.
 stiffness_pN2nm = [0.1, 0.1]  # Stiffness [pN/nm]
