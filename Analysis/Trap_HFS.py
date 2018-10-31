@@ -18,8 +18,6 @@ import sys
 
 ### User input ##################################
 
-# Box sync test
-
 calibrate = False
 QPD_nm2V = [100, 60]      # QPD sensitivity (nm/V) at V_sum = 8 V.
 stiffness_pN2nm = [0.1, 0.1]  # Stiffness [pN/nm]
@@ -34,9 +32,9 @@ gamma0 = 6.*pi*rho*nu*R
 gamma = gamma0/(1-9*R/(16*L)+R**3/(8*L**3)-45*R**4/(256*L**4)-R**5/(16*L**5))  # Zero frequency Stokes drag coefficent (pN s/nm)
 fc = stiffness_pN2nm[1] / (2*pi*gamma)
 
-f_drive = 50 # Hz
+f_drive = 100 # Hz
 A_drive = 100 # nm
-t_block = 10
+t_block = 30
 n_avg = 20
 
 t_short = 1.0/f_drive/2
@@ -55,7 +53,7 @@ def sine(t, A, ph, b): # Sine function
     return A * np.sin(2*pi*f_drive*t - ph) + b    
 
 def exp(F, t0, dF):
-    return t0*np.exp(F/dF)
+    return t0*np.exp(-F/dF)
 
 def running_mean(x, N = n_avg): # Running mean
     cumsum = np.cumsum(np.insert(x, 0, 0)) 
@@ -99,15 +97,15 @@ class Event(object):
             self.A_RMSD = (np.mean((A - A_fit)**2))**0.5
                  
             if self.A_RMSD > A_RMSD_cut:  
-                print("A_RMSD = %.2f" %(self.A_RMSD))
+#                print("A_RMSD = %.2f" %(self.A_RMSD))
                 return False                
                 
             self.ts = p[1] - p[0]
             if (self.ts < t_short):
-                print("Too short event. ts = %.2f ms" %(self.ts*1000))
+#                print("Too short event. ts = %.2f ms" %(self.ts*1000))
                 return False
             elif (self.ts > t_long):
-                print("Too long event. ts = %.2f ms" %(self.ts*1000))
+#                print("Too long event. ts = %.2f ms" %(self.ts*1000))
                 return False      
             else:
                 pass             
@@ -149,7 +147,7 @@ class Event(object):
             QPD_u = sine(self.t[iu], p_u[0], p_u[1], p_u[2])  
 
             if p_b[0]/p_u[0] < Abu_cut:
-                print("A_b / A_u = %.2f" %(p_b[0] / p_u[0]))
+#                print("A_b / A_u = %.2f" %(p_b[0] / p_u[0]))
                 return False
 
             QPD_fit = np.zeros(len(t))
@@ -158,7 +156,7 @@ class Event(object):
             self.QPD_RMSD = (np.mean((QPD - QPD_fit)**2))**0.5       
 
             if self.QPD_RMSD > QPD_RMSD_cut:
-                print("QPD RMSD = %.2f" %(self.QPD_RMSD))
+#                print("QPD RMSD = %.2f" %(self.QPD_RMSD))
                 return False
             
             self.dQPD = dQPD
@@ -331,11 +329,11 @@ class Data(object):
         for i in range(len(tb)):
             ts = tu[i] - tb[i]
             if (ts < t_short):
-                print("Too short event. ts = %.2f ms" %(ts*1000)) 
+#                print("Too short event. ts = %.2f ms" %(ts*1000)) 
                 tb_ex.append(tb[i])
                 tu_ex.append(tu[i])                     
             elif (ts > t_long):
-                print("Too long event. ts = %.2f ms" %(ts*1000)) 
+#                print("Too long event. ts = %.2f ms" %(ts*1000)) 
                 tb_ex.append(tb[i])
                 tu_ex.append(tu[i])
             else:
@@ -596,6 +594,9 @@ class Molecule(object):
             if len(ix) > 0:
                 tm[i] = np.mean(ts[ix])
 #            tm_s[i] = np.std(ts[ix]) / (len(ts[ix]))**0.5
+
+        if np.mean(tm[Fm>0]) < np.mean(tm[Fm<0]):
+            Fm = -Fm
     
         params, cov = curve_fit(exp, Fm[tm>0], tm[tm>0], p0=[50, 2])
         t0, dF = params
@@ -714,6 +715,12 @@ if __name__ == "__main__":
 """""""""
 To-do
 
+Exp decay: Negative if mean time increases
+
+event finding based on two rounds? 1) both QPD_A and QPD_P, 2) then use dQPD_A?
+
+stiffness
+
 Save sample, slide, mol name and display in the plots
 
 lowpass > subtract > std > cutoff based on std
@@ -761,6 +768,11 @@ Fourier transform with QPDs, Amp, Phase whether they are from the same noise sou
 > module_name, package_name, ClassName, method_name, ExceptionName, 
 > function_name, GLOBAL_CONSTANT_NAME, global_var_name, instance_var_name, 
 > function_parameter_name, local_var_name
+
+================================================================================
+
+Done
+
 
 
 
