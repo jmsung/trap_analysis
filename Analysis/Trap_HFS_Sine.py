@@ -8,13 +8,14 @@ from __future__ import division, print_function, absolute_import
 import numpy as np
 import matplotlib.pyplot as plt
 from nptdms import TdmsFile
-import os
-import shutil
+from os import path, makedirs, getcwd, listdir
+from shutil import rmtree
 from scipy.optimize import curve_fit
 from scipy.special import erf
 from math import pi, atan
 from scipy import convolve
-import sys
+from sys import exc_info
+
 
 ### User input ##################################
 
@@ -73,13 +74,13 @@ def find_outliers(data, m = outlier_cut):
     return cutoff, i_outliers
 
 def make_folder(name):
-    path = os.path.join(os.getcwd(), name)       
-    if os.path.exists(path):
-        shutil.rmtree(path)
-        os.makedirs(path)
+    new_path = path.join(getcwd(), name)       
+    if path.exists(new_path):
+        rmtree(new_path)
+        makedirs(new_path)
     else:
-        os.makedirs(path)    
-    return path
+        makedirs(new_path)    
+    return new_path
 
 
 class Event(object):
@@ -122,7 +123,7 @@ class Event(object):
             return True           
             
         except:
-            print("Unexpected error", sys.exc_info()[0])
+            print("Unexpected error", exc_info()[0])
             return False
 
     def fit_QPD(self, t, QPD, dQPD, tb, tu):
@@ -184,7 +185,7 @@ class Event(object):
             return True
             
         except:
-            print("Unexpected error", sys.exc_info()[0])
+            print("Unexpected error", exc_info()[0])
             return False
 
     def fit_PZT(self, t, PZT, tb, tu):
@@ -214,7 +215,7 @@ class Event(object):
             self.PZT_QPD = PZT_QPD / np.max(PZT_QPD)
 
         except:
-            print("Unexpected error", sys.exc_info()[0])
+            print("Unexpected error", exc_info()[0])
             return False    
             
         
@@ -396,7 +397,7 @@ class Data(object):
             sp.set_ylabel('Amplitude_Avg (nm)')
         
             fig_name = self.name[:-5] + '_' + str(i) + '.png'
-            fig.savefig(os.path.join(path, fig_name))
+            fig.savefig(path.join(path, fig_name))
             plt.close(fig)     
 
 
@@ -483,14 +484,14 @@ class Data(object):
      
             sp.set_xlabel('Time (s)')      
             fig_name = e.name + '.png'
-            fig.savefig(os.path.join(path, fig_name))
+            fig.savefig(path.join(path, fig_name))
             plt.close(fig)    
 
              
 class Molecule(object):
     def __init__(self):
-        path = os.getcwd()              
-        file_list = os.listdir(path) 
+        path = getcwd()              
+        file_list = listdir(path) 
         self.data_list = []
         for file_name in file_list:
             if file_name[-4:] == 'tdms':
@@ -623,7 +624,7 @@ class Molecule(object):
         sp.set_ylabel('Mean dwell time (ms)')
         sp.set_title("Mean force vs Mean dwell time")  
 
-        fig.savefig(os.path.join(path, 'F-V.png'))
+        fig.savefig(path.join(path, 'F-V.png'))
         plt.close(fig) 
         
         # Figure: VKb
@@ -651,7 +652,7 @@ class Molecule(object):
         sp.set_xlabel('Phase @ binding')        
         sp.set_ylabel('Negative Velocity')          
 
-        fig.savefig(os.path.join(path, 'P-B.png'))
+        fig.savefig(path.join(path, 'P-B.png'))
         plt.close(fig)                          
                                                                            
 #        sp = fig.add_subplot(122)   
