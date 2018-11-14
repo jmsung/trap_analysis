@@ -8,8 +8,8 @@ from __future__ import division, print_function, absolute_import
 import numpy as np
 import matplotlib.pyplot as plt
 from nptdms import TdmsFile
-from os import path, makedirs, getcwd, listdir
-from shutil import rmtree
+import os #import path, makedirs, getcwd, listdir
+import shutil #import rmtree
 from scipy.optimize import curve_fit
 from scipy.special import erf
 from math import pi, atan
@@ -74,16 +74,16 @@ def find_outliers(data, m = outlier_cut):
     return cutoff, i_outliers
 
 def make_folder(name):
-    new_path = path.join(getcwd(), name)       
-    if path.exists(new_path):
-        rmtree(new_path)
-        makedirs(new_path)
+    path = os.path.join(os.getcwd(), name)       
+    if os.path.exists(path):
+        shutil.rmtree(path)
+        os.makedirs(path)
     else:
-        makedirs(new_path)    
-    return new_path
+        os.makedirs(path)    
+    return path
 
 
-class Event(object):
+class Event:
     def __init__(self, name):
         self.name = name
 
@@ -219,7 +219,7 @@ class Event(object):
             return False    
             
         
-class Data(object):
+class Data:
     def __init__(self, name):
         self.name = name
 
@@ -397,7 +397,7 @@ class Data(object):
             sp.set_ylabel('Amplitude_Avg (nm)')
         
             fig_name = self.name[:-5] + '_' + str(i) + '.png'
-            fig.savefig(path.join(path, fig_name))
+            fig.savefig(os.path.join(path, fig_name))
             plt.close(fig)     
 
 
@@ -484,14 +484,14 @@ class Data(object):
      
             sp.set_xlabel('Time (s)')      
             fig_name = e.name + '.png'
-            fig.savefig(path.join(path, fig_name))
+            fig.savefig(os.path.join(path, fig_name))
             plt.close(fig)    
 
              
-class Molecule(object):
+class Molecule:
     def __init__(self):
-        path = getcwd()              
-        file_list = listdir(path) 
+        path = os.getcwd()              
+        file_list = os.listdir(path) 
         self.data_list = []
         for file_name in file_list:
             if file_name[-4:] == 'tdms':
@@ -624,7 +624,7 @@ class Molecule(object):
         sp.set_ylabel('Mean dwell time (ms)')
         sp.set_title("Mean force vs Mean dwell time")  
 
-        fig.savefig(path.join(path, 'F-V.png'))
+        fig.savefig(os.path.join(path, 'F-V.png'))
         plt.close(fig) 
         
         # Figure: VKb
@@ -652,7 +652,7 @@ class Molecule(object):
         sp.set_xlabel('Phase @ binding')        
         sp.set_ylabel('Negative Velocity')          
 
-        fig.savefig(path.join(path, 'P-B.png'))
+        fig.savefig(os.path.join(path, 'P-B.png'))
         plt.close(fig)                          
                                                                            
 #        sp = fig.add_subplot(122)   
