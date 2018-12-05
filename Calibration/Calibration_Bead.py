@@ -11,8 +11,8 @@ from numpy.fft import fft
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from nptdms import TdmsFile
-from scipy.optimize import curve_fit, fmin, minimize
-from scipy.stats import norm, expon, gamma, pearsonr
+from scipy.optimize import curve_fit, minimize
+from scipy.stats import norm, expon, pearsonr
 import os
 import shutil
 
@@ -21,24 +21,11 @@ import shutil
 # First you need to change directory (cd) to where the file is located
 
 # Update the file name
-files = ['X_fd50Hz_Ad50nm_Power020',
-         'X_fd50Hz_Ad50nm_Power040',
-         'X_fd50Hz_Ad50nm_Power060',         
-         'X_fd50Hz_Ad50nm_Power080',         
-         'X_fd50Hz_Ad50nm_Power100',         
-         'Y_fd50Hz_Ad50nm_Power020',         
-         'Y_fd50Hz_Ad50nm_Power040',
-         'Y_fd50Hz_Ad50nm_Power060',         
-         'Y_fd50Hz_Ad50nm_Power080',         
-         'Y_fd50Hz_Ad50nm_Power100']         
-  
-#files = ['X_H1000nm_fd50Hz_Ad50nm_Power100',                 
-#         'Y_H1000nm_fd50Hz_Ad50nm_Power100']    
                        
 ch_name = ['QPD_x', 'QPD_y', 'QPD_z', 'PZT_x', 'PZT_y', 'PZT_z']
 
 f_sample = 20000                # Sampling frequency
-f_lowpass = 20000               # Anti-aliasing low pass filter (f_Nyq = f_sample/2)
+f_lp = 20000               # Anti-aliasing low pass filter (f_Nyq = f_sample/2)
 dt = 1/f_sample                 # Time interval during sampling
 t_total = 10                   # Total time in sec
 N_total = int(f_sample * t_total)    # Total number of data
@@ -51,9 +38,7 @@ df = 1/t_window                  # Freq interval for a window
 N_avg = int(t_total / t_window)       # Num of windows for averaging
 
 # PZT 
-f_drive = 50                   # Oscillation frequency
-A_drive = 50                  # Oscillation amplitude
-N_drive = int(f_sample/f_drive) # Number of data in one oscillation
+
 PZT_nm2V = [5000, 5000, 3000]  # PZT Volt to nm conversion factor
 
 # Constants
@@ -77,18 +62,22 @@ def running_mean(x, N=1000): # Smoothening by running averaging
     cumsum = np.cumsum(np.insert(x, 0, 0)) 
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
-def sine(t, A, t0, b): # Sine function
+def sine(t, f_drive, A, t0, b): # Sine function
     return A * np.sin(2*pi*f_drive*(t-t0)) + b
 
-def LP(f, a_diode, f_diode):
+def QPD_LP(f, a_diode, f_diode):
     return a_diode**2 + (1-a_diode**2)/(1+(f/f_diode)**2) 
 
+def LP(f, f_lp):
+    f = abs(f)
+    return 1/(1 + (f/f_lp)**8)
+    
 def P_0(f, D1, fc1, D2, fc2):
     f = abs(f)
     return D1/(2*pi**2)/(fc1**2 + f**2) + D2/(2.*pi**2)/(fc2**2 + f**2)
 
 def PSD(f, D1, fc1, D2, fc2, a_diode, f_diode):
-    return np.sum([LP(f+i*f_sample, a_diode, f_diode)*P_0(f+i*f_sample, D1, fc1, D2, fc2) for i in range(-1,2)], axis=0)
+    return np.sum([LP(f+i*f_sample, f_lp)*QPD_LP(f+i*f_sample, a_diode, f_diode)*P_0(f+i*f_sample, D1, fc1, D2, fc2) for i in range(-5,6)], axis=0)
 
 def P_H(f, D1, fc1, D2, fc2):
     f = abs(f)
@@ -99,16 +88,16 @@ def P_H(f, D1, fc1, D2, fc2):
     return  P_noise + P_h 
 
 def PSD_H(f, D1, fc1, D2, fc2, a_diode, f_diode):
-    return np.sum([LP(f+i*f_sample, a_diode, f_diode)*P_H(f+i*f_sample, D1, fc1, D2, fc2) for i in range(-1,2)], axis=0)
+    return np.sum([LP(f+i*f_sample, f_lp)*QPD_LP(f+i*f_sample, a_diode, f_diode)*P_H(f+i*f_sample, D1, fc1, D2, fc2) for i in range(-5,6)], axis=0)
 
 def ratio_stokes(f):
     return 1 + (1-1j)*(f/fv)**0.5 - 1j*2/9*f/fv
     
-def W_H(A, fc):
+def W_H(A, f_drive, fc):
     ra=ratio_stokes(f_drive)
     return A**2*abs(ra)**2./(4 * (fc/f_drive + np.imag(ra) - f_drive/fm0)**2 + np.real(ra)**2)
 
-def W_th(A, fc):
+def W_th(A, f_drive, fc):
     return A**2 / (1 + (fc / f_drive)**2) / 4     
 
 def LL(p, Pf, f):
@@ -120,10 +109,12 @@ def LL_H(p, Pf, f):
                +Pf/PSD_H(f, p[0], p[1], p[2], p[3], p[4], p[5])))
 
 class Data:
-    def __init__(self, fname, axis, power):
+    def __init__(self, fname, axis, power, fd, Ad):
         self.fname = fname
         self.axis = axis
         self.power = power
+        self.fd = fd
+        self.Ad = Ad
 
         # Make a directory to save the results
         self.data_path = os.getcwd()
@@ -183,8 +174,8 @@ class Data:
         self.f = df * np.arange(1, N_window/2)    
 
         # PSD_X ################################################################
-        f = self.f[self.f!=f_drive]  
-        Pf = self.PSD_X[self.f!=f_drive]
+        f = self.f[self.f!=self.fd]  
+        Pf = self.PSD_X[self.f!=self.fd]
 
         # LSQ fitting  
         fc1 = self.power*2.1 + 19
@@ -196,7 +187,7 @@ class Data:
         p0 = [D1, fc1, D2, fc2, a_diode, fc_diode]
         lb = (D1/5, fc1/5, D2/5, fc2/5, 0, fc_diode/5)
         ub = (D1*5, fc1*5, D2*5, fc2*5, 1, fc_diode*5)
-        p, cov = curve_fit(PSD, f, Pf, p0, sigma=self.PSD_XS[self.f!=f_drive], bounds = (lb, ub))
+        p, cov = curve_fit(PSD, f, Pf, p0, sigma=self.PSD_XS[self.f!=self.fd], bounds = (lb, ub))
 
         # MLE fitting 
         p0 = [p[0], p[1], p[2], p[3], p[4], p[5]]
@@ -218,14 +209,14 @@ class Data:
                       - 2*LL([p[0], p[1], p[2], p[3],    p[4], p[5]], Pf, f))/dx**2)**-0.5
 
         self.PSD_X_fit = PSD(self.f, p[0], p[1], p[2], p[3], p[4], p[5])
-        self.residual_X = self.PSD_X[self.f!=f_drive]/self.PSD_X_fit[self.f!=f_drive]
+        self.residual_X = self.PSD_X[self.f!=self.fd]/self.PSD_X_fit[self.f!=self.fd]
 
-        self.residual_X0 = np.zeros((N_avg, sum(self.f!=f_drive)))
+        self.residual_X0 = np.zeros((N_avg, sum(self.f!=self.fd)))
         for j in range(N_avg): # per window
-            self.residual_X0[j] = self.PSD_X0[j][self.f!=f_drive]/self.PSD_X_fit[self.f!=f_drive]
+            self.residual_X0[j] = self.PSD_X0[j][self.f!=self.fd]/self.PSD_X_fit[self.f!=self.fd]
   
         # PSD_Y ################################################################                   
-        Pf = self.PSD_Y[self.f!=f_drive]
+        Pf = self.PSD_Y[self.f!=self.fd]
         
         # LSQ fitting         
         fc1 = self.power*2.6 + 12
@@ -237,7 +228,7 @@ class Data:
         p0 = [D1, fc1, D2, fc2, a_diode, fc_diode]
         lb = (D1/5, fc1/5, D2/5, fc2/5, 0, fc_diode/5)
         ub = (D1*5, fc1*5, D2*5, fc2*5, 1, fc_diode*5) 
-        p, cov = curve_fit(PSD, f, Pf, p0, sigma=self.PSD_YS[self.f!=f_drive], bounds = (lb, ub))
+        p, cov = curve_fit(PSD, f, Pf, p0, sigma=self.PSD_YS[self.f!=self.fd], bounds = (lb, ub))
 
         # MLE fitting 
         p0 = [p[0], p[1], p[2], p[3], p[4], p[5]]
@@ -259,48 +250,49 @@ class Data:
                       - 2*LL([p[0], p[1], p[2], p[3],    p[4], p[5]], Pf, f))/dx**2)**-0.5
                              
         self.PSD_Y_fit = PSD(self.f, p[0], p[1], p[2], p[3], p[4], p[5])
-        self.residual_Y = self.PSD_Y[self.f!=f_drive]/self.PSD_Y_fit[self.f!=f_drive]
+        self.residual_Y = self.PSD_Y[self.f!=self.fd]/self.PSD_Y_fit[self.f!=self.fd]
         
-        self.residual_Y0 = np.zeros((N_avg, sum(self.f!=f_drive)))
+        self.residual_Y0 = np.zeros((N_avg, sum(self.f!=self.fd)))
         for j in range(N_avg): # per window
-            self.residual_Y0[j] = self.PSD_Y0[j][self.f!=f_drive]/self.PSD_Y_fit[self.f!=f_drive]
+            self.residual_Y0[j] = self.PSD_Y0[j][self.f!=self.fd]/self.PSD_Y_fit[self.f!=self.fd]
             
         # Determine beta, kappa_fit, gamma_fit, R_fit
         if self.axis == 'X': 
-            p, cov = curve_fit(sine, time, self.PZTx,  p0=[A_drive, f_drive, 0])
-            self.PZT_A = abs(p[0])   
+            p, cov = curve_fit(sine, time, self.PZTx,  p0=[self.fd, self.Ad, self.fd, 0])
+            self.PZT_A = abs(p[1])   
             self.fc = self.fc_X
             self.dfc = self.dfc_X
             self.D_V = self.D_X    
             self.dD_V = self.dD_X       
-            self.W_ex = df * (self.PSD_X[self.f==f_drive] - self.PSD_X_fit[self.f==f_drive])             
+            self.W_ex = df * (self.PSD_X[self.f==self.fd] - self.PSD_X_fit[self.f==self.fd])             
         else:
-            p, cov = curve_fit(sine, time, self.PZTy,  p0=[A_drive, f_drive, 0])
-            self.PZT_A = abs(p[0])            
+            p, cov = curve_fit(sine, time, self.PZTy,  p0=[self.fd, self.Ad, self.fd, 0])
+            self.PZT_A = abs(p[1])            
             self.fc = self.fc_Y  
             self.dfc = self.dfc_Y                        
             self.D_V = self.D_Y
             self.dD_V = self.dD_Y            
-            self.W_ex = df * (self.PSD_Y[self.f==f_drive] - self.PSD_Y_fit[self.f==f_drive])          
+            self.W_ex = df * (self.PSD_Y[self.f==self.fd] - self.PSD_Y_fit[self.f==self.fd])          
  
-        self.W_th = W_th(self.PZT_A, self.fc)      
+        self.W_th = W_th(self.PZT_A, self.fd, self.fc)      
         self.beta = (self.W_th / self.W_ex)**0.5 
         self.D = self.D_V * self.beta**2    
         self.kappa = 2*pi*self.fc*kT/self.D
         self.gamma = kT/self.D
         self.ratio_stoke = self.gamma / gamma_0
 
-        self.dW_th = abs(W_th(self.PZT_A, self.fc+self.dfc) - W_th(self.PZT_A, self.fc-self.dfc))/2
+        self.dW_th = abs(W_th(self.PZT_A, self.fd, self.fc+self.dfc) - W_th(self.PZT_A, self.fd, self.fc-self.dfc))/2
         self.dbeta = abs(((self.W_th+self.dW_th)/self.W_ex)**0.5 - ((self.W_th-self.dW_th)/self.W_ex)**0.5)/2         
         self.dD = abs((self.D_V+self.dD_V)*(self.beta+self.dbeta)**2 - (self.D_V-self.dD_V) * (self.beta-self.dbeta)**2)/2    
         self.dkappa = 2*pi*abs((self.fc+self.dfc)*kT/(self.D-self.dD) - (self.fc-self.dfc)*kT/(self.D+self.dD))/2
         self.dgamma = abs(kT/(self.D-self.dD) - kT/(self.D+self.dD))/2
+        self.drs = self.dgamma / gamma_0
 
-#        print('A_fit = %.1f [nm])' % (abs(self.PZT_A)))
+        print('A_fit = %.1f [nm])' % (abs(self.PZT_A)))
         print('beta = %.1f +/- %.1f [nm/V]' %(self.beta, self.dbeta))  
-#        print('fc = %.1f +/- %.1f [Hz]' % (self.fc, self.dfc))
-        print('kappa = %.3f +/- %.3f [pN/nm] \n' %(self.kappa, self.dkappa))
-#        print('Stoke ratio = %.1f \n' %(self.ratio_stoke)) # Due to viscosity and surface hydrodynamic effect  
+        print('fc = %.1f +/- %.1f [Hz]' % (self.fc, self.dfc))
+        print('kappa = %.3f +/- %.3f [pN/nm]' %(self.kappa, self.dkappa))
+        print('Stoke ratio = %.1f \n' %(self.ratio_stoke)) # Due to viscosity and surface hydrodynamic effect  
              
     def plot_fig1(self):
         fig = plt.figure(1, figsize = (20, 10), dpi=300) 
@@ -340,11 +332,12 @@ class Data:
 
 
     def plot_fig2(self):
+        self.fd
         fig = plt.figure(2, figsize = (20, 10), dpi=300)  
 
         # PSD_X
         sp = fig.add_subplot(221)
-        sp.loglog(self.f, self.PSD_X, 'k', ms=1)
+        sp.loglog(self.f, self.PSD_X, 'k.', ms=1)
         sp.loglog(self.f, self.PSD_X_fit, 'r', lw=2)       
         sp.set_xlabel('Frequency (Hz)')
         sp.set_ylabel('PSD_X (V^2 Hz)')
@@ -356,7 +349,7 @@ class Data:
 
         # Residual_X
         sp = fig.add_subplot(222)
-        sp.plot(self.f[self.f!=f_drive], self.residual_X, 'k', ms=1)
+        sp.plot(self.f[self.f!=self.fd], self.residual_X, 'k.', ms=1)
         sp.axhline(y=1, color='r', linestyle='solid', linewidth=2)
         sp.set_xlabel('Frequency (Hz)')
         sp.set_ylabel('PSD_X (Exp/Fit)')
@@ -384,7 +377,7 @@ class Data:
 
         # PSD_Y
         sp = fig.add_subplot(221)
-        sp.loglog(self.f, self.PSD_Y, 'k', ms=1)
+        sp.loglog(self.f, self.PSD_Y, 'k.', ms=1)
         sp.loglog(self.f, self.PSD_Y_fit, 'r', lw=2)
         sp.set_xlabel('Frequency (Hz)')
         sp.set_ylabel('PSD_Y')
@@ -397,11 +390,10 @@ class Data:
 
         # Residual_Y
         sp = fig.add_subplot(222)
-        sp.plot(self.f[self.f!=f_drive], self.residual_Y, 'k', ms=1)
+        sp.plot(self.f[self.f!=self.fd], self.residual_Y, 'k.', ms=1)
         sp.axhline(y=1, color='r', linestyle='solid', linewidth=2)
         sp.set_xlabel('Frequency (Hz)')
         sp.set_ylabel('PSD_Y (Exp/Fit)')             
-
 
         sp = fig.add_subplot(223)     
         sp.hist(self.residual_Y, bins=20, color='k', histtype='step', normed=True)
@@ -433,19 +425,18 @@ class Data:
         self.plot_fig3()  
 
 
-def main():
-    for fname in files:
-        print(fname)
-        axis = fname[:1]
-        power = int(fname[-3:])
-        data = Data(fname, axis, power)
-        data.read()
-        data.analyze()
-        data.plot()
-
+def main(fname, axis, power, fd, Ad):
+    
+    data = Data(fname, axis, power, fd, Ad)
+    data.read()
+    data.analyze()
+    data.plot()
+    
+    return data.beta, data.dbeta, data.kappa, data.dkappa, data.ratio_stoke, data.drs
 
 if __name__ == "__main__":
     main()
+
 
 
 
