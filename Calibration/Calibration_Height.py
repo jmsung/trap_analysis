@@ -1,21 +1,33 @@
-# Trap calibration: power dependence
+# Trap calibration: Height dependence
 
 from __future__ import division, print_function, absolute_import
 import numpy as np
 import matplotlib.pyplot as plt
 import Calibration_Bead
+import Calibration_Bead_Hydro
 from scipy.optimize import curve_fit
 
-files = [['X_H0200', 'X_H0400', 'X_H0600', 'X_H0800', 'X_H1000'],
-         ['Y_H0200', 'Y_H0400', 'Y_H0600', 'Y_H0800', 'Y_H1000']]
+files = [['X_H0100', 'X_H0200', 'X_H0300', 'X_H0400', 'X_H0500', 'X_H0600', 'X_H0700', 'X_H0800', 'X_H0900', 'X_H1000', 'X_H1100', 'X_H1200', 'X_H1300', 'X_H1400', 'X_H1500'],
+         ['Y_H0100', 'Y_H0200', 'Y_H0300', 'Y_H0400', 'Y_H0500', 'Y_H0600', 'Y_H0700', 'Y_H0800', 'Y_H0900', 'Y_H1000', 'Y_H1100', 'Y_H1200', 'Y_H1300', 'Y_H1400', 'Y_H1500']]
+
+files = [['X_H0200', 'X_H0300', 'X_H0400', 'X_H0500', 'X_H0600', 'X_H0700', 'X_H0800', 'X_H0900', 'X_H1000', 'X_H1100', 'X_H1200', 'X_H1300', 'X_H1400', 'X_H1500'],
+         ['Y_H0200', 'Y_H0300', 'Y_H0400', 'Y_H0500', 'Y_H0600', 'Y_H0700', 'Y_H0800', 'Y_H0900', 'Y_H1000', 'Y_H1100', 'Y_H1200', 'Y_H1300', 'Y_H1400', 'Y_H1500']]
 
 
+#files = [['X_H0100', 'X_H0500', 'X_H0900'],
+#         ['Y_H0100', 'Y_H0500', 'Y_H0900']]
 
-def func(x, a, b):
-    return a * x + b
 
+R = 430
 fd = 50
 Ad = 50
+power = 100
+
+def Faxen(H, offset, B):
+    h = H+offset
+    x = 1 - 9*R/16/h + (R**3)/8/(h**3) - 45*(R**4)/256/(h**4) - (R**5)/16/(h**5)
+    return B/x
+
 
 def main():
     
@@ -35,14 +47,18 @@ def main():
                 
             fname = files[i][j]
             axis = fname[0]
-            h[j] = int(fname[-4:])
+            h[j] = int(fname[-4:])+R
             print(fname)
+            print(h[j])
         
-            b[j], db[j], k[j], dk[j], r[j], dr[j] = Calibration_Bead.main(fname, axis, h[j], fd, Ad)
- 
-        
-        x = np.linspace(0, 1100, 10)
-        
+            b[j], db[j], k[j], dk[j], r[j], dr[j] = Calibration_Bead_Hydro.main(fname, axis, power, fd, Ad, h[j])
+#            b[j], db[j], k[j], dk[j], r[j], dr[j] = Calibration_Bead.main(fname, axis, power, fd, Ad)
+
+        # Beta * Kappa
+        bk = b*k
+        dbk = bk*((db/b)**2 + (dk/k)**2)**0.5
+        mbk = np.average(bk, weights = 1/dbk**2)
+       
         # Beta
         mb = np.average(b, weights = 1/db**2)
         
@@ -50,30 +66,52 @@ def main():
         mk = np.average(k, weights = 1/dk**2)    
         
         # Stoke ratio        
-        mr = np.average(r, weights = 1/dr**2)
-                                                          
-        sp = fig.add_subplot(2,3,3*i+1)
-        sp.axhline(y=mb, color='k', linestyle='solid', linewidth=2)
+        p_r, cov = curve_fit(Faxen, h, r, p0=[0, 3], sigma=dr)
+        offset = p_r[0]
+        ratio = p_r[1]
+        
+        h = h + offset
+        x = np.linspace(min(h)-10, max(h)+100, 100)        
+        r_fit = Faxen(x, 0, ratio)
+                                                                                                                                                                                   
+        sp = fig.add_subplot(2,4,4*i+1)
+        sp.axhline(y=mb, color='k', linestyle='solid', linewidth=1)
+        sp.axvline(x=R, color='k', linestyle='dashed', linewidth=1)   
         sp.errorbar(h, b, yerr=db, fmt='o', ecolor='k', color='k')
-        sp.set_xlim((0, 1100))
-        sp.set_xlabel('Height [nm]')
+        sp.set_xlim((0, max(h)+100))
+        sp.set_xlabel('Bead center to surface [nm]')
         sp.set_ylabel('Beta [nm/V]')
-        sp.set_title('Beta = %d +/- %d' %(mb, np.std(b)))
+        sp.set_title('Beta [nm/V] = %d +/- %d' %(mb, np.std(b)))
 
-        sp = fig.add_subplot(2,3,3*i+2)
+        sp = fig.add_subplot(2,4,4*i+2)
         sp.errorbar(h, k, yerr=dk, fmt='o', ecolor='k', color='k')
-        sp.set_xlim((0, 1100))
-        sp.set_xlabel('Height [nm]')
+        sp.axvline(x=R, color='k', linestyle='dashed', linewidth=1)   
+        sp.axhline(y=mk, color='k', linestyle='solid', linewidth=1)
+        sp.set_xlim((0, max(h)+100))
+        sp.set_xlabel('Bead center to surface [nm]')
         sp.set_ylabel('Kappa [pN/nm]')
-        sp.set_title('Kappa = %.3f' %(mk))               
+        sp.set_title('Kappa [pN/nm] = %.3f +/- %.3f' %(mk, np.std(k)))               
     
-        sp = fig.add_subplot(2,3,3*i+3)
-        sp.axhline(y=mr, color='k', linestyle='solid', linewidth=2)
+        sp = fig.add_subplot(2,4,4*i+3)
+        sp.errorbar(h, b*k, yerr=dbk, fmt='o', ecolor='k', color='k')
+        sp.axvline(x=R, color='k', linestyle='dashed', linewidth=1)   
+        sp.axhline(y=mbk, color='k', linestyle='solid', linewidth=1)
+        sp.set_xlim((0, max(h)+100))
+        sp.set_xlabel('Bead center to surface [nm]')
+        sp.set_ylabel('Beta*Kappa [pN/V]')
+        sp.set_title('Beta*Kappa [pN/V] = %.1f +/- %.1f' %(mbk, np.std(dbk)))    
+
+
+        sp = fig.add_subplot(2,4,4*i+4)
+        sp.plot(x, r_fit, 'r')
         sp.errorbar(h, r, yerr=dr, fmt='o', ecolor='k', color='k')
-        sp.set_xlim((0, 1100))
-        sp.set_xlabel('Height [nm]')
+        sp.axvline(x=R, color='k', linestyle='dashed', linewidth=1)        
+        sp.axhline(y=ratio, color='r', linestyle='dashed', linewidth=1)
+        sp.axhline(y=1, color='k', linestyle='solid', linewidth=1)
+        sp.set_xlim((0, max(h)+100))
+        sp.set_xlabel('Bead center to surface [nm]')
         sp.set_ylabel('Stoke ratio')
-        sp.set_title('Stoke ratio = %.1f +/- %.1f' %(mr, np.std(r)))
+        sp.set_title('Stoke ratio = %.1f, Offset = %.1f nm' %(ratio, offset))
 
     fig.savefig('Calibration result.png')
     plt.close(fig)     
@@ -82,121 +120,6 @@ if __name__ == "__main__":
     main()
 
 
-"""
-# Data #########################################################################
-
-fd = 50 
-Ad = 50
-
-power = np.array([20, 40, 60, 80, 100])
-
-# X-axis oscillation
-bx = np.array([465.3, 433.3, 409.3, 414.9, 358.3])
-dbx = np.array([54.4, 36.4, 28.1, 24.3, 16.6])
-
-fcx = np.array([762.6, 1483.0, 2244.8, 3108.2, 4749.3])
-dfcx = np.array([86.6, 122.5, 152.3, 180.5, 218.3])
-
-kx = np.array([0.127, 0.296, 0.507, 0.676, 0.986])
-dkx = np.array([0.053, 0.089, 0.127, 0.148, 0.178])
-
-# Y-axis oscillation
-by = np.array([314.5, 327.8, 327.7, 333.3, 346.8])
-dby = np.array([24.3, 18.5, 15.8, 14.2, 13.5])
-
-fcy = np.array([648.2, 1136.5, 1659.2, 2204.4, 2702.2])
-dfcy = np.array([49.6, 63.9, 79.7, 93.2, 104.7])
-
-ky = np.array([0.106, 0.181, 0.272, 0.361, 0.443])
-dky = np.array([0.029, 0.037, 0.049, 0.058, 0.067])
-
-# Result #######################################################################
-
-x = np.linspace(0, 110, 10)
-
-# [X] beta
-mbx = np.average(bx, weights = 1/dbx**2)
-
-# [X] fc
-p, cov = curve_fit(func, power, fcx, sigma = dfcx)
-fcx_fit = func(x, p[0], p[1])
-dPdfcx = p[0]
-dPdfcx_err = cov[0][0]/(len(power)-1)**0.5
-
-# [X] kappa
-p, cov = curve_fit(func, power, kx, sigma = dkx)
-kx_fit = func(x, p[0], p[1])
-dPdkx = p[0]
-dPdkx_err = cov[0][0]/(len(power)-1)**0.5
-
-################################################################################
-# [Y] Beta
-mby = np.average(by, weights = 1/dby**2)
-
-# [Y] fc
-p, cov = curve_fit(func, power, fcy, sigma = dfcy)
-fcy_fit = func(x, p[0], p[1])
-dPdfcy = p[0]
-dPdfcy_err = cov[0][0]/(len(power)-1)**0.5
-
-# [Ykappa
-p, cov = curve_fit(func, power, ky, sigma = dky)
-ky_fit = func(x, p[0], p[1])
-dPdky = p[0]
-dPdky_err = cov[0][0]/(len(power)-1)**0.5
-
-# Plot #########################################################################        
-fig = plt.figure(1, figsize = (20, 10), dpi=300)  
-
-sp = fig.add_subplot(231)
-sp.axhline(y=mbx, color='k', linestyle='solid', linewidth=2)
-sp.errorbar(power, bx, yerr=dbx, fmt='o', ecolor='k', color='k')
-sp.set_xlabel('Power [%]')    
-sp.set_ylabel('beta_X [nm/V]')
-sp.set_title('beta = %d +/- %d' %(mbx, np.std(bx)/(len(power)-1)**0.5))
-
-sp = fig.add_subplot(232)
-sp.errorbar(power, fcx, yerr=dfcx, fmt='o', ecolor='k', color='k')
-sp.plot(x, fcx_fit, 'k')
-sp.set_xlabel('Power [%]')    
-sp.set_ylabel('fc_X [Hz]')
-sp.set_title('fc/power = %.1f +/- %.1f' %(dPdfcx, dPdfcx_err))
-
-sp = fig.add_subplot(233)
-sp.errorbar(power, kx, yerr=dkx, fmt='o', ecolor='k', color='k')
-sp.plot(x, kx_fit, 'k')
-sp.set_xlabel('Power [%]')    
-sp.set_ylabel('k_X [pN/nm]')
-sp.set_title('kappa/power = %.4f' %(dPdkx))
-
-################################################################################
-sp = fig.add_subplot(234)
-sp.axhline(y=mby, color='k', linestyle='solid', linewidth=2)
-sp.errorbar(power, by, yerr=dby, fmt='o', ecolor='k', color='k')
-sp.set_xlabel('Power [%]')    
-sp.set_ylabel('beta_Y [nm/V]')
-sp.set_title('beta = %d +/- %d' %(mby, np.std(by)/(len(power)-1)**0.5))
-
-sp = fig.add_subplot(235)
-sp.errorbar(power, fcy, yerr=dfcy, fmt='o', ecolor='k', color='k')
-sp.plot(x, fcy_fit, 'k')
-sp.set_xlabel('Power [%]')    
-sp.set_ylabel('fc_Y [Hz]')
-sp.set_title('fc/power = %.1f +/- %.1f' %(dPdfcy, dPdfcy_err))
-
-sp = fig.add_subplot(236)
-sp.errorbar(power, ky, yerr=dky, fmt='o', ecolor='k', color='k')
-sp.plot(x, ky_fit, 'k')
-sp.set_xlabel('Power [%]')    
-sp.set_ylabel('k_Y [pN/nm]')
-sp.set_title('kappa/power = %.4f' %(dPdky))
-
-
-
-fig.savefig('Calibration result.png')
-plt.close(fig)       
-
-"""
 
 
 
