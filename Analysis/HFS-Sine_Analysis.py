@@ -7,8 +7,8 @@
 from __future__ import division, print_function, absolute_import
 import numpy as np
 import matplotlib.pyplot as plt
-import os #import path, makedirs, getcwd, listdir
-import shutil #import rmtree
+import os 
+import shutil 
 import scipy
 import math 
 import sys 

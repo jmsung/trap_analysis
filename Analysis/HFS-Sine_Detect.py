@@ -35,6 +35,9 @@ Abu_cut = 1.2
 outlier_cut = 5
 
 
+subtract bg fluctuation as I did for HFS-Triangle
+
+
 ###############################################
 
 def step(t, tb, tu, Ab, Au, s1, s2):
