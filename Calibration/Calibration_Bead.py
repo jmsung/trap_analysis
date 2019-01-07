@@ -3,13 +3,13 @@
 from __future__ import division, print_function, absolute_import
 import Calibration
 import sys
-import os
+
 
 files = ['Cal_X', 'Cal_Y']
 
 f_sample = 20000
 f_lp = 20000
-power = 50
+power = 100
 R = 430
 fd = 50
 Ad = 50

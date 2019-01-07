@@ -1,10 +1,19 @@
-# Test triangle function
+# Functions used for trap analysis 
 
 import numpy as np
-import matplotlib.pyplot as plt
+import scipy 
+import os
+import shutil
+
+
+
+def step(t, tb, tu, Ab, Au, s1, s2):
+    return (Ab-Au) * (scipy.special.erf(s1*(t-tb)) - scipy.special.erf(s2*(t-tu)))/2 + Au
+
 
 def sine(t, f, A, ph, b): # Sine function
     return A * np.sin(2*np.pi*f*t - ph) + b  
+
 
 def triangle(t, f, A, ph, b):
     
@@ -40,6 +49,7 @@ def triangle(t, f, A, ph, b):
     wsub = np.extract(mask3, w)
     np.place(y, mask3, (np.pi * (wsub + 1) - tsub) / (np.pi * (1 - wsub)))
     return A*y + b
+
 
 def trapzoid(t, f, A, ph, b, m):
     
@@ -80,6 +90,7 @@ def trapzoid(t, f, A, ph, b, m):
     
     return A*y + b
 
+
 def square(t, f, A, ph, b):
     duty = 0.5
     t = 2 * np.pi * f * t - ph
@@ -109,19 +120,56 @@ def square(t, f, A, ph, b):
     np.place(y, mask3, -1)
     return A*y + b
 
-t = np.linspace(0,2,1000) 
 
-y_triangle = triangle(t, f=1, A=1, ph=0, b=0)
-y_square = square(t, f=1, A=1, ph=0, b=0)
-y_sine = sine(t, f=1, A=1, ph=0, b=0)
-y_trapzoid = trapzoid(t, f=1, A=10, ph=0, b=0, m=0.01)
+def exp(F, t0, dF):
+    dF = abs(dF)
+    return t0*np.exp(-F/dF)
 
 
-plt.figure(1)
-plt.clf()
-plt.plot(t, y_triangle, 'k')
-plt.plot(t, y_square, 'b')
-plt.plot(t, y_sine, 'r')
-plt.plot(t, y_trapzoid, 'g')
-plt.axhline(y=0, color='k', linestyle='dashed', lw=1)  
-plt.show()
+def running_mean(x, N = 10): # Running mean
+    cumsum = np.cumsum(np.insert(x, 0, 0)) 
+    x0 = (cumsum[N:] - cumsum[:-N]) / float(N)
+    x1 = np.mean(x[:N])*np.ones(int(N/2))
+    x2 = np.mean(x[-N:])*np.ones(int(N/2))
+    return np.concatenate((x1, x0, x2))
+
+
+def running_std(x, N = 11): # Running mean
+    s = np.ones(len(x))*100
+
+    s[:int(N/2)] = np.std(x[:int(N/2)])
+    s[-int(N/2):] = np.std(x[-int(N/2):])    
+
+    for i in range(len(x)-(N-1)):
+        s[i+int(N/2)] = np.std(x[i:N+i])
+
+    if any(x == 100):
+        print('wrong')
+
+    return s
+
+
+def reject_outliers(data, m = 2.):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    s = d/mdev if mdev else 0.
+    return data[s < m]
+
+
+def find_outliers(data, m = 5):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    cutoff = np.median(data) + m*mdev
+    i_outliers = data > cutoff
+    return cutoff, i_outliers
+
+
+def make_folder(name):
+    path = os.path.join(os.getcwd(), name)       
+    if os.path.exists(path):
+        shutil.rmtree(path)
+        os.makedirs(path)
+    else:
+        os.makedirs(path)    
+    return path
+
