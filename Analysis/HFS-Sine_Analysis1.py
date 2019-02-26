@@ -9,15 +9,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os 
 import shutil 
-import scipy
+from scipy.optimize import curve_fit
 import math 
 import sys 
 
 ### User input ##################################
 
+#PATH = r'C:\Users\Jongmin Sung\Box Sync\Research\Project\Trap\18-12-07 1067_HFS\Slide1_ATP1mM\Mol1_P50%_fd100Hz_Ad100nm'
+
+f_drive = 100 # Hz
+fs = 2000
+dt = 1/fs
+N_QPD = fs/f_drive*2
 
 def make_folder(name):
-    path = os.path.join(PATH, name)       
+    path = os.path.join(os.getcwd(), name)       
     if os.path.exists(path):
         shutil.rmtree(path)
         os.makedirs(path)
@@ -35,36 +41,102 @@ def outliers(data, m = 5.):
 def Exp_pdf(m, x):
     return np.exp(-x/abs(m))/abs(m) 
 
-
+def sine(t, A, ph, b): # Sine function
+    return A * np.sin(2*np.pi*f_drive*t - ph) + b    
 
 ###############################################
 def main():
 
     Fs = []
     ts = []
-    As = []
+    Ab = []
+    Au = []
+    QPD_Xb = []
+    QPD_Xu = []
+    QPD_Vb = []
+    QPD_Vu = []
+    PZT_Xb = []
+    PZT_Xu = [] 
+    PZT_Vb = []
+    PZT_Vu = []
     
-    
-    with open(os.path.join(PATH, 'Result.txt')) as f:
+    with open(os.path.join(os.getcwd() , 'Result.txt')) as f:
         for line in f:
             result = line.split(" ")
             Fs.append(float(result[0]))
             ts.append(float(result[1]))
+            Ab.append(float(result[2]))
+            Au.append(float(result[3]))            
+            QPD_Xb.append(float(result[4]))
+            QPD_Xu.append(float(result[5]))
+            QPD_Vb.append(float(result[6]))
+            QPD_Vu.append(float(result[7]))
+            PZT_Xb.append(float(result[8]))
+            PZT_Xu.append(float(result[9]))
+            PZT_Vb.append(float(result[10]))
+            PZT_Vu.append(float(result[11]))
 
-
-            
     print("%d events are detected. \n" %(len(Fs)))             
     if len(Fs) == 0:
         return
-                        
+                    
     Fs = np.array(Fs)
     ts = np.array(ts)
+    Ab = np.array(Ab)
+    Au = np.array(Au)
+    QPD_Xb = np.array(QPD_Xb)
+    QPD_Xu = np.array(QPD_Xu)
+    QPD_Vb = np.array(QPD_Vb)
+    QPD_Vu = np.array(QPD_Vu)
+    PZT_Xb = np.array(PZT_Xb)
+    PZT_Xu = np.array(PZT_Xu)
+    PZT_Vb = np.array(PZT_Vb)
+    PZT_Vu = np.array(PZT_Vu)    
 
     if np.mean(ts[Fs>0]) > np.mean(ts[Fs<0]):
         Fs = -Fs          
     
     ks = 1/ts
-           
+
+    # QPD after binding
+    QPD_binding = []
+    with open(os.path.join(os.getcwd() , 'QPD_binding.txt')) as f:
+        for line in f:
+            x = line.split(" ")
+            QPD = [float(i) for i in x[:-1]]
+            QPD_binding.append(QPD)
+    QPD_binding = np.array(QPD_binding)
+    QPD_binding = np.mean(QPD_binding, axis=0)
+    QPD_binding = QPD_binding - np.mean(QPD_binding)
+
+    p0_b = [max(QPD_binding), 0, 0]
+    lb_b = (max(QPD_binding)/2, -np.pi, -max(QPD_binding))
+    ub_b = (max(QPD_binding)*2, np.pi, max(QPD_binding))
+
+    t = np.arange(0, N_QPD*dt, dt)    
+    p_b, cov = curve_fit(sine, t, QPD_binding, p0_b, bounds = (lb_b, ub_b))            
+    QPD_binding_fit = sine(t, p_b[0], p_b[1], p_b[2])  
+    stroke_binding = QPD_binding - QPD_binding_fit
+  
+    # QPD before unbinding 
+    QPD_unbinding = []
+    with open(os.path.join(os.getcwd() , 'QPD_unbinding.txt')) as f:
+        for line in f:
+            x = line.split(" ")
+            QPD = [float(i) for i in x[:-1]]
+            QPD_unbinding.append(QPD)
+    QPD_unbinding = np.array(QPD_unbinding)
+    QPD_unbinding = np.mean(QPD_unbinding, axis=0)
+    QPD_unbinding = QPD_unbinding - np.mean(QPD_unbinding)      
+  
+    p0_u = [max(QPD_unbinding), 0, 0]
+    lb_u = (max(QPD_unbinding)/2, -np.pi, -max(QPD_unbinding))
+    ub_u = (max(QPD_unbinding)*2, np.pi, max(QPD_unbinding))
+    
+    p_u, cov = curve_fit(sine, t, QPD_unbinding, p0_u, bounds = (lb_u, ub_u))            
+    QPD_unbinding_fit = sine(t, p_u[0], p_u[1], p_u[2])  
+    stroke_unbinding = QPD_unbinding - QPD_unbinding_fit
+         
     # Get Force dependent mean dwell time
 #    F_bin = np.linspace(min(Fs)-0.1, max(Fs)+0.1, 11)
 #    Fm = np.zeros(len(F_bin)-1)
@@ -84,16 +156,25 @@ def main():
       
     path = make_folder('Results')       
     
-    # Figure: Fv
+    # Figure: F-T
     fig = plt.figure('FT', figsize = (20, 10), dpi=300)     
-    sp = fig.add_subplot(111)   
-    sp.plot(Fs, ts, 'ko', ms=10, alpha=0.5)              
+    sp = fig.add_subplot(121)   
+    sp.plot(Fs, ts, 'ko', ms=7, alpha=0.5)              
     sp.axvline(x=0, c='k', ls='dotted', lw=1)   
     sp.set_ylim(0, max(ts)*1.1)
-    sp.set_xlabel('Force (pN)', fontsize=30)  
-    sp.set_ylabel('Dwell time (s)', fontsize=30)
-    sp.set_title("Force vs Dwell time", fontsize=30)           
-    fig.savefig(os.path.join(path, 'Force-Time.png'))
+    sp.set_xlabel('Force (pN)', fontsize=20)  
+    sp.set_ylabel('Dwell time (s)', fontsize=20)
+    sp.set_title("Force vs Dwell time", fontsize=20)           
+   
+    sp = fig.add_subplot(122)   
+    sp.plot(Fs, Ab-Au, 'ko', ms=7, alpha=0.5)              
+    sp.axvline(x=0, c='k', ls='dotted', lw=1)   
+    sp.set_ylim(0, max(Ab-Au)*1.1)
+    sp.set_xlabel('Force (pN)', fontsize=20)  
+    sp.set_ylabel('Amplitude (nm)', fontsize=20)
+    sp.set_title("Force vs Amplitude", fontsize=20) 
+
+    fig.savefig(os.path.join(path, 'Force-Time-Amp.png'))
     plt.close(fig) 
         
     # Figure: Dwell
@@ -105,29 +186,118 @@ def main():
     m_p = (np.median(ts_p-min(ts_p))*np.log(2) + min(ts_p))
 #    m_p = np.median(ts_p)*np.log(2)    
     t = np.linspace(0, max(abs(ts)), 100)
-    
+
+
+    #######################################################################    
     fig = plt.figure('Dwell', figsize = (20, 10), dpi=300)     
     sp = fig.add_subplot(121)   
-    sp.hist(ts_n, color='k', histtype='step', density='True', lw=2)   
-    sp.plot(t, Exp_pdf(m_n, t), 'r', lw=2)   
+    bins = sp.hist(ts_n, bins = 10, color='k', histtype='step', lw=2)   
+    sp.plot(t, Exp_pdf(m_n, t)*len(ts_n)*(bins[1][1]-bins[1][0]), 'r', lw=2)   
     sp.set_xlim([0, max(t)])       
-    sp.set_title("Mean time = %.3f (s) (F < 0, N = %d)" %(m_n, len(ts_n)), fontsize=30)
-    sp.set_xlabel('Dwell time (s)', fontsize=30)
-    sp.set_ylabel('Probability density', fontsize=30)
+    sp.set_title("Mean time = %.3f (s) (F < 0, N = %d)" %(m_n, len(ts_n)), fontsize=20)
+    sp.set_xlabel('Dwell time (s)', fontsize=20)
+    sp.set_ylabel('Counts', fontsize=20)
     
     sp = fig.add_subplot(122)   
-    sp.hist(ts_p, color='k', histtype='step', density='True', lw=2)  
-    sp.plot(t, Exp_pdf(m_p, t), 'r', lw=2)      
+    bins = sp.hist(ts_p, bins = 10, color='k', histtype='step', lw=2)  
+    sp.plot(t, Exp_pdf(m_p, t)*len(ts_p)*(bins[1][1]-bins[1][0]), 'r', lw=2)      
     sp.set_xlim([0, max(t)])
-    sp.set_title("Mean time = %.3f (s) (F > 0, N = %d)" %(m_p, len(ts_p)), fontsize=30)    
-    sp.set_ylabel('Probability density', fontsize=30)    
-    sp.set_xlabel('Dwell time (s)', fontsize=30)
+    sp.set_title("Mean time = %.3f (s) (F > 0, N = %d)" %(m_p, len(ts_p)), fontsize=20)    
+    sp.set_ylabel('Counts', fontsize=20)    
+    sp.set_xlabel('Dwell time (s)', fontsize=20)
     fig.savefig(os.path.join(path, 'Dwell.png'))
     plt.close(fig) 
 
+
+    #######################################################################
+    fig = plt.figure('Binding_QPD', figsize = (20, 10), dpi=300)     
+    sp = fig.add_subplot(221)   
+    sp.hist(QPD_Xb, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Position (nm)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('QPD position at binding', fontsize=20)
+
+    sp = fig.add_subplot(222)   
+    sp.hist(QPD_Xu, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Position (nm)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('QPD position at unbinding', fontsize=20)
+
+    sp = fig.add_subplot(223)   
+    sp.hist(QPD_Vb/1000, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Velocity (um/s)') 
+    sp.set_ylabel('Counts')    
+    sp.set_title('QPD velocity at binding', fontsize=20)
+
+    sp = fig.add_subplot(224)   
+    sp.hist(QPD_Vu/1000, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Velocity (um/s)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('QPD velocity at unbinding', fontsize=20)
+    fig.savefig(os.path.join(path, 'Binding_QPD.png'))
+    plt.close(fig)     
     
+    
+    #######################################################################    
+    fig = plt.figure('Binding_PZT', figsize = (20, 10), dpi=300)     
+    sp = fig.add_subplot(221)   
+    sp.hist(PZT_Xb, color='k', bins=10, histtype='step', lw=2)  
+    sp.set_xlabel('Position (nm)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('PZT position at binding', fontsize=20)
+
+    sp = fig.add_subplot(222)   
+    sp.hist(PZT_Xu, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Position (nm)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('PZT position at unbinding', fontsize=20)
+
+    sp = fig.add_subplot(223)   
+    sp.hist(PZT_Vb/1000, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Velocity (um/s)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('PZT velocity at binding', fontsize=20)
+
+    sp = fig.add_subplot(224)   
+    sp.hist(PZT_Vu/1000, color='k', bins=10, histtype='step', lw=2)   
+    sp.set_xlabel('Velocity (um/s)') 
+    sp.set_ylabel('Counts')
+    sp.set_title('PZT velocity at unbinding', fontsize=20)
+    fig.savefig(os.path.join(path, 'Binding_PZT.png'))
+    plt.close(fig) 
+
+    #######################################################################    
+    t = np.arange(0, N_QPD*dt, dt) 
+
+    fig = plt.figure('QPD_binding', figsize = (20, 10), dpi=300)     
+    sp = fig.add_subplot(211)   
+    sp.plot(t*1000, QPD_binding, 'k') 
+    sp.plot(t*1000, QPD_binding_fit, 'r')     
+    sp.set_title('QPD at binding', fontsize=20)
+    sp = fig.add_subplot(212)   
+    sp.plot(t*1000, stroke_binding, 'b')     
+    sp.set_title('Stroke at binding', fontsize=20)    
+    
+    fig.savefig(os.path.join(path, 'QPD_binding.png'))
+    plt.close(fig) 
+
+    #######################################################################    
+    fig = plt.figure('QPD_unbinding', figsize = (20, 10), dpi=300)     
+    sp = fig.add_subplot(211)   
+    sp.plot(t*1000, QPD_unbinding, 'k') 
+    sp.plot(t*1000, QPD_unbinding_fit, 'r')   
+    sp.set_title('QPD at unbinding', fontsize=20)
+    sp = fig.add_subplot(212)   
+    sp.plot(t*1000, stroke_unbinding, 'b')     
+    sp.set_title('Stroke at unbinding', fontsize=20)    
+    fig.savefig(os.path.join(path, 'QPD_unbinding.png'))
+    plt.close(fig)     
 """
 
+
+        
+
+    
     fig = plt.figure('MFT', figsize = (20, 10), dpi=300)    
     sp = fig.add_subplot(111)   
     sp.plot(Fm, tm, 'ko', ms=10)     

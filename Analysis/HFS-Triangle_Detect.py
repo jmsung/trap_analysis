@@ -333,7 +333,7 @@ class Molecule:
                 self.data_list.append(file_name)      
             
     def calibrate(self):
-        path = os.path.join(os.getcwd(), 'Cal')
+        path = os.path.join(os.getcwd(), 'Calibration')
         file_list = os.listdir(path) 
 
         self.QPD_nm2V = np.zeros(2)      

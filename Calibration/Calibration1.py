@@ -77,7 +77,7 @@ def LL_H(p, Pf, f, R, L, f_sample, f_lp, fv, fm):
     return (sum(np.log(PSD_H(f, p[0], p[1], p[2], p[3], p[4], p[5], R, L, f_sample, f_lp, fv, fm)) + Pf/PSD_H(f, p[0], p[1], p[2], p[3], p[4], p[5], R, L, f_sample, f_lp, fv, fm)))
 
 class Data:
-    def __init__(self, path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
+    def __init__(self, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
         self.fname = fname
         self.f_sample = f_sample
         self.f_lp = f_lp
@@ -109,8 +109,8 @@ class Data:
         self.N_avg = int(self.t_total / self.t_window)       # Num of windows for averaging
 
         # Make a directory to save the results
-        self.data_path = path
-        self.dir = os.path.join(self.data_path, fname[:5])
+        self.data_path = os.getcwd()
+        self.dir = os.path.join(self.data_path, fname)
 
         if os.path.exists(self.dir):
             shutil.rmtree(self.dir)
@@ -120,7 +120,7 @@ class Data:
                               
     def read(self):
         # File information below
-        tdms_file = TdmsFile(os.path.join(self.data_path, self.fname)) # Reads a tdms file.
+        tdms_file = TdmsFile(self.fname+'.tdms') # Reads a tdms file.
         group_name = "Trap" # Get the group name
         channels = tdms_file.group_channels(group_name) # Get the channel object
 
@@ -174,10 +174,10 @@ class Data:
         Pf = self.PSD_X[self.f!=self.fd]
 
         # MLE fitting 
-        D1_X = 0.06          
-        fc1_X = self.power*0.7
-        D2_X = 0.6  
-        fc2_X = self.power*7    
+        D1_X = 0.1          
+        fc1_X = self.power*0.5
+        D2_X = 0.5  
+        fc2_X = self.power*5    
         a_QPD = 0.5
         f_QPD = 5000
 
@@ -218,10 +218,10 @@ class Data:
         Pf = self.PSD_Y[self.f!=self.fd]
         
         # MLE fitting      
-        D1_Y = 0.018          
-        fc1_Y = self.power*0.7
-        D2_Y = 1.1 
-        fc2_Y = self.power*6.3 
+        D1_Y = 0.01          
+        fc1_Y = self.power*0.5
+        D2_Y = 0.5 
+        fc2_Y = self.power*5
 
         p0 = [D1_Y, fc1_Y, D2_Y, fc2_Y, a_QPD, f_QPD]
         bnds = ((D1_Y/10, D1_Y*10), (fc1_Y/10, fc1_Y*10), (D2_Y/10, D2_Y*10), (fc2_Y/10, fc2_Y*10), (0, 1), (f_QPD/10, f_QPD*10))
@@ -439,9 +439,9 @@ class Data:
         self.plot_fig3()  
 
 
-def main(path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
+def main(fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
         
-    data = Data(path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height)
+    data = Data(fname, f_sample, f_lp, R, power, axis, fd, Ad, height)
     data.read()
     data.analyze()
     data.plot()
@@ -449,7 +449,7 @@ def main(path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
     return data.PZT_A, data.beta, data.dbeta, data.kappa, data.dkappa, data.ratio_stoke, data.drs
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
 
 
 # To-do
