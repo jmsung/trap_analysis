@@ -9,10 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nptdms 
 import os
-import shutil #import rmtree
 import scipy
 from scipy.optimize import curve_fit
 import sys 
+from trap_func import sine, trapzoid, running_mean, reject_outliers, make_folder, step, find_outliers
 import Calibration
 
 ### User input ##################################
@@ -43,43 +43,6 @@ Ad_cal = 50          # Oscillation amplitude (50 nm)
 height_cal = 500     # Calibration above the surface (500 nm)
 
 ###############################################
-
-def step(t, tb, tu, Ab, Au, s1, s2):
-    return (Ab-Au) * (scipy.special.erf(s1*(t-tb)) - scipy.special.erf(s2*(t-tu)))/2 + Au
-              
-def sine(t, A, ph, b): # Sine function
-    return A * np.sin(2*np.pi*f_drive*t - ph) + b    
-
-def exp(F, t0, dF):
-    dF = abs(dF)
-    return t0*np.exp(-F/dF)
-
-def running_mean(x, N = n_avg): # Running mean
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    return (cumsum[N:] - cumsum[:-N]) / float(N)
-
-def reject_outliers(data, m = 2.):
-    d = np.abs(data - np.median(data))
-    mdev = np.median(d)
-    s = d/mdev if mdev else 0.
-    return data[s < m]
-
-def find_outliers(data, m = outlier_cut):
-    d = np.abs(data - np.median(data))
-    mdev = np.median(d)
-    cutoff = np.median(data) + m*mdev
-    i_outliers = data > cutoff
-    return cutoff, i_outliers
-
-def make_folder(name):
-    path = os.path.join(os.getcwd(), name)       
-    if os.path.exists(path):
-        shutil.rmtree(path)
-        os.makedirs(path)
-    else:
-        os.makedirs(path)    
-    return path
-
 
 class Event:
     def __init__(self, name):

@@ -98,12 +98,12 @@ class Data:
 
         # Total time
         self.dt = 1/f_sample                 # Time interval during sampling
-        self.t_total = 10                   # Total time in sec
+        self.t_total = 100                   # Total time in sec
         self.N_total = int(f_sample * self.t_total)    # Total number of data
         self.time = self.dt*np.arange(self.N_total)
 
         # Windowing 
-        self.t_window = 0.1                  # Time for one window in sec
+        self.t_window = 1                  # Time for one window in sec
         self.N_window = int(f_sample * self.t_window)    # Num of data in a window
         self.df = 1/self.t_window                  # Freq interval for a window
         self.N_avg = int(self.t_total / self.t_window)       # Num of windows for averaging
@@ -315,7 +315,7 @@ class Data:
         
         # X (V)
         sp = fig.add_subplot(grid[0,0])
-        sp.hist(self.QPDx, bins=100, color='k', histtype='step', normed=True)
+        sp.hist(self.QPDx, bins=100, color='k', histtype='step', density=True)
         x = np.linspace(min(self.QPDx), max(self.QPDx), 100)
         sp.plot(x, norm.pdf(x, loc=0, scale=np.std(self.QPDx)), 'r')
         sp.set_yscale('log')
@@ -325,7 +325,7 @@ class Data:
         # Y (V)
         sp = fig.add_subplot(grid[1,0])
         y = np.linspace(min(self.QPDy), max(self.QPDy), 100)
-        sp.hist(self.QPDy, bins=100, color='k', histtype='step', normed=True)
+        sp.hist(self.QPDy, bins=100, color='k', histtype='step', density=True)
         sp.plot(y, norm.pdf(y, loc=0, scale=np.std(self.QPDy)), 'r')
         sp.set_yscale('log')
         sp.set_xlabel('Y (V)')   
@@ -370,7 +370,7 @@ class Data:
         sp.set_ylabel('Normalized PSD_X (Exp/Fit)')
 
         sp = fig.add_subplot(223)        
-        sp.hist(self.residual_X, bins=20, color='k', histtype='step', normed=True)
+        sp.hist(self.residual_X, bins=20, color='k', histtype='step', density=True)
         x = np.linspace(min(self.residual_X), max(self.residual_X), 100)
         sp.plot(x, norm.pdf(x, loc=1, scale=1/(self.N_avg)**0.5), 'r')
         sp.set_yscale('log')
@@ -378,7 +378,7 @@ class Data:
 
         sp = fig.add_subplot(224)     
         x = np.linspace(0, max(self.residual_X0.flatten()), 100) 
-        sp.hist(self.residual_X0.flatten(), bins=20, color='k', histtype='step', normed=True)
+        sp.hist(self.residual_X0.flatten(), bins=20, color='k', histtype='step', density=True)
         sp.plot(x, expon.pdf(x), 'r')
         sp.set_yscale('log')
         sp.set_xlabel('Normalized PSD_X0 (Exp/Fit)')
@@ -411,7 +411,7 @@ class Data:
         sp.set_ylabel('Normalized PSD_Y (Exp/Fit)')             
 
         sp = fig.add_subplot(223)     
-        sp.hist(self.residual_Y, bins=20, color='k', histtype='step', normed=True)
+        sp.hist(self.residual_Y, bins=20, color='k', histtype='step', density=True)
         y = np.linspace(min(self.residual_Y), max(self.residual_Y), 100)
         sp.plot(y, norm.pdf(y, loc=1, scale=1/(self.N_avg)**0.5), 'r')
         sp.set_yscale('log')
@@ -419,7 +419,7 @@ class Data:
 
         sp = fig.add_subplot(224)     
         y = np.linspace(0, max(self.residual_Y0.flatten()), 100)
-        sp.hist(self.residual_Y0.flatten(), bins=20, color='k', histtype='step', normed=True)
+        sp.hist(self.residual_Y0.flatten(), bins=20, color='k', histtype='step', density=True)
         sp.plot(y, expon.pdf(y), 'r')
         sp.set_yscale('log')
         sp.set_xlabel('Normalized PSD_Y0 (Exp/Fit)')
@@ -449,7 +449,7 @@ def main(fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
     return data.PZT_A, data.beta, data.dbeta, data.kappa, data.dkappa, data.ratio_stoke, data.drs
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
 
 
 # To-do

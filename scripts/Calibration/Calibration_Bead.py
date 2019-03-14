@@ -7,12 +7,12 @@ import sys
 
 files = ['Cal_X', 'Cal_Y']
 
-f_sample = 20000
-f_lp = 20000
+f_sample = 10000
+f_lp = 10000
 power = 100
 R = 240
-fd = 50
-Ad = 50
+fd = 100
+Ad = 100
 height = 500
 
 def main(): 
@@ -34,7 +34,7 @@ def main():
         info.close()                
                                                 
 if __name__ == "__main__": 
-    sys.exit(main())
+    main()
 
 
 
