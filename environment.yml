@@ -30,4 +30,3 @@ dependencies:
     - urllib3==1.24.3
 prefix: /home/jmsung/miniconda/envs/trap_analysis
 
-
