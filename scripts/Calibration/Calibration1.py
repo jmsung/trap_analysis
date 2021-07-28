@@ -77,8 +77,9 @@ def LL_H(p, Pf, f, R, L, f_sample, f_lp, fv, fm):
     return (sum(np.log(PSD_H(f, p[0], p[1], p[2], p[3], p[4], p[5], R, L, f_sample, f_lp, fv, fm)) + Pf/PSD_H(f, p[0], p[1], p[2], p[3], p[4], p[5], R, L, f_sample, f_lp, fv, fm)))
 
 class Data:
-    def __init__(self, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
-        self.fname = fname
+    def __init__(self, path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
+        self.path = path
+        self.fname = fname+'.tdms'
         self.f_sample = f_sample
         self.f_lp = f_lp
         self.R = R
@@ -98,7 +99,7 @@ class Data:
 
         # Total time
         self.dt = 1/f_sample                 # Time interval during sampling
-        self.t_total = 100                   # Total time in sec
+        self.t_total = 30                   # Total time in sec
         self.N_total = int(f_sample * self.t_total)    # Total number of data
         self.time = self.dt*np.arange(self.N_total)
 
@@ -109,8 +110,9 @@ class Data:
         self.N_avg = int(self.t_total / self.t_window)       # Num of windows for averaging
 
         # Make a directory to save the results
-        self.data_path = os.getcwd()
-        self.dir = os.path.join(self.data_path, fname)
+#        self.data_path = os.getcwd()
+        self.dir = self.path/fname
+#        os.path.join(self.data_path, fname)
 
         if os.path.exists(self.dir):
             shutil.rmtree(self.dir)
@@ -120,7 +122,7 @@ class Data:
                               
     def read(self):
         # File information below
-        tdms_file = TdmsFile(self.fname+'.tdms') # Reads a tdms file.
+        tdms_file = TdmsFile(self.path/self.fname) # Reads a tdms file.
         group_name = "Trap" # Get the group name
         channels = tdms_file.group_channels(group_name) # Get the channel object
 
@@ -141,7 +143,8 @@ class Data:
     def analyze(self):
 
         # Write the calibration result to a file
-        info = open(os.path.join(self.dir, 'Calibration.txt'), 'w')
+#        info = open(os.path.join(self.dir, 'Calibration.txt'), 'w')
+        info = open(self.dir/'Calibration.txt', 'w')
         info.write('Filename = %s \n\n' %(self.fname))
 
         # Windowing  
@@ -342,7 +345,7 @@ class Data:
         sp.set_ylabel('Y (V)')  
         sp.set_title('Correlation = %f' %(pearsonr(self.QPDx, self.QPDy)[0]))
 
-        fig.savefig(os.path.join(self.dir, 'Fig1_XY.png'))
+        fig.savefig(self.dir/'Fig1_XY.png')
         plt.close(fig)    
 
 
@@ -353,7 +356,7 @@ class Data:
         # PSD_X
         sp = fig.add_subplot(221)
         sp.loglog(self.f, self.PSD_X, 'k.', ms=1)
-        sp.loglog(self.f, self.PSD_X_fit, 'r', lw=2)       
+#        sp.loglog(self.f, self.PSD_X_fit, 'r', lw=2)       
         sp.set_xlabel('Frequency [Hz]')
         sp.set_ylabel('PSD_X [$V^2$ s]')
         if self.axis == 'X': 
@@ -383,7 +386,7 @@ class Data:
         sp.set_yscale('log')
         sp.set_xlabel('Normalized PSD_X0 (Exp/Fit)')
         
-        fig.savefig(os.path.join(self.dir, 'Fig2_PSD_X.png'))
+        fig.savefig(self.dir/'Fig2_PSD_X.png')
         plt.close(fig)                
 
 
@@ -393,7 +396,7 @@ class Data:
         # PSD_Y
         sp = fig.add_subplot(221)
         sp.loglog(self.f, self.PSD_Y, 'k.', ms=1)
-        sp.loglog(self.f, self.PSD_Y_fit, 'r', lw=2)
+#        sp.loglog(self.f, self.PSD_Y_fit, 'r', lw=2)
         sp.set_xlabel('Frequency (Hz)')
         sp.set_ylabel('PSD_Y [$V^2$ s]')
 
@@ -430,7 +433,7 @@ class Data:
 #        sp.set_xlabel('Frequency (Hz)')
 #        sp.set_ylabel('PSD_XY')   
          
-        fig.savefig(os.path.join(self.dir, 'Fig3_PSD_Y.png'))
+        fig.savefig(self.dir/'Fig3_PSD_Y.png')
         plt.close(fig)                
 
     def plot(self):
@@ -438,9 +441,9 @@ class Data:
         self.plot_fig2()                                                                                                                                                  
         self.plot_fig3()  
 
-def main(fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
+def main(path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height):
         
-    data = Data(fname, f_sample, f_lp, R, power, axis, fd, Ad, height)
+    data = Data(path, fname, f_sample, f_lp, R, power, axis, fd, Ad, height)
     data.read()
     data.analyze()
     data.plot()
